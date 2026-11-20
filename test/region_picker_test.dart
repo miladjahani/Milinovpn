@@ -32,7 +32,10 @@ void main() {
     expect(find.text('Choose location'), findsOneWidget);
     expect(find.text('Fastest (automatic)'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('Germany'), 200);
+    // Searching avoids depending on how many lazy list rows fit in the sheet.
+    await tester.enterText(find.byType(TextField), 'Germany');
+    await tester.pump();
+    expect(find.text('Germany'), findsOneWidget);
     await tester.tap(find.text('Germany'));
     await tester.pumpAndSettle();
     expect(picked, 'DE');
