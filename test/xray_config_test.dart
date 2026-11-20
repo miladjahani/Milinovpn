@@ -288,8 +288,10 @@ void main() {
     }).build(ConnectionMode.worker)).config;
     final proxy = (c['outbounds'] as List).first as Map;
     expect(proxy['protocol'], 'shadowsocks');
-    expect(proxy['settings']['method'], 'aes-256-gcm');
-    expect(proxy['settings']['password'], uuid);
+    final servers = proxy['settings']['servers'] as List;
+    expect(servers, hasLength(1));
+    expect(servers.first['method'], 'aes-256-gcm');
+    expect(servers.first['password'], uuid);
     expect(proxy['streamSettings']['network'], 'ws');
     expect(proxy['streamSettings']['wsSettings']['path'], '/$uuid/ss?ed=2560');
   });
