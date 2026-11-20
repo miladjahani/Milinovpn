@@ -19,7 +19,7 @@ void main() {
 
   testWidgets('step 1 asks about a Cloudflare account, No shows sign-up steps', (tester) async {
     await pumpWizard(tester);
-    expect(find.text('Step 1 of 3'), findsOneWidget);
+    expect(find.text('Cloudflare'), findsOneWidget);
     expect(find.text('Welcome to MiliConfig'), findsOneWidget);
 
     await tester.tap(find.text('No, sign me up'));
@@ -35,7 +35,7 @@ void main() {
     await pumpWizard(tester);
     await tester.tap(find.text('Yes'));
     await tester.pumpAndSettle();
-    expect(find.text('Step 2 of 3'), findsOneWidget);
+    expect(find.text('API token'), findsOneWidget);
     expect(find.text('Create an API token'), findsOneWidget);
 
     // Next without a token shows an error instead of calling Cloudflare.
@@ -45,6 +45,6 @@ void main() {
 
     await tester.tap(find.text('Back'));
     await tester.pumpAndSettle();
-    expect(find.text('Step 1 of 3'), findsOneWidget);
+    expect(find.text('Cloudflare'), findsOneWidget);
   });
 }

@@ -35,7 +35,11 @@ class AppState extends ChangeNotifier {
   static const _kSecretAccounts = 'cloudflareAccounts';
 
   late SharedPreferences _prefs;
+  bool _ready = false;
   final _secrets = const FlutterSecureStorage();
+
+  /// Persistence is ready; widget tests build the state without calling [init].
+  bool get isReady => _ready;
 
   /// The stored profile, without the VLESS part (that's each deployment's).
   Profile _stored = const Profile();
@@ -337,6 +341,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    _ready = true;
     _stored = Profile.fromJson(_decodeMap(_prefs.getString(_kProfile)))
         .updated('vless', null);
     device = DeviceSettings.fromJson(_decodeMap(_prefs.getString(_kDevice)));

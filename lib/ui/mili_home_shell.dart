@@ -1255,12 +1255,15 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
   void _startLiveScan(MiliIpPoolData data) {
     _liveScanner.cancel();
     _scanSub?.cancel();
-    AppScope.read(context).write('device.scanners.mili_live', {
-      'port': _livePort,
-      'sample': _liveSample,
-      'timeout': _liveTimeout,
-      'concurrency': _liveConcurrency,
-    });
+    final state = AppScope.read(context);
+    if (state.isReady) {
+      state.write('device.scanners.mili_live', {
+        'port': _livePort,
+        'sample': _liveSample,
+        'timeout': _liveTimeout,
+        'concurrency': _liveConcurrency,
+      });
+    }
     final pool = List<MiliIpEntry>.of(data.byCountry(_selectedCountry))..shuffle();
     final sample = (_liveSample <= 0 ? pool : pool.take(_liveSample)).toList();
     setState(() {

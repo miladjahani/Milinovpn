@@ -236,17 +236,19 @@ class _CloudflareScannerPageState extends State<CloudflareScannerPage> {
       setState(() => _error = 'Select at least one CIDR.');
       return;
     }
-    state.write('device.scanners.${_protocol.wireName}', {
-      'probeCount': probeCount,
-      'outputCount': output,
-      'attemptCount': _attemptCount,
-      'attemptInterval': attemptInterval,
-      'probeInterval': probeInterval,
-      'port': _port,
-      'mode': _mode,
-      'customCidrs': _customCidrs,
-      'selectedCidrs': _selectedCidrs.toList(),
-    });
+    if (state.isReady) {
+      state.write('device.scanners.${_protocol.wireName}', {
+        'probeCount': probeCount,
+        'outputCount': output,
+        'attemptCount': _attemptCount,
+        'attemptInterval': attemptInterval,
+        'probeInterval': probeInterval,
+        'port': _port,
+        'mode': _mode,
+        'customCidrs': _customCidrs,
+        'selectedCidrs': _selectedCidrs.toList(),
+      });
+    }
     // The native scanner needs the VPN stopped; it waits for the tunnel to close.
     if (state.isConnected || state.isBusy) await state.disconnect();
     final worker = state.worker;
