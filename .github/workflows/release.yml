@@ -1,9 +1,10 @@
 # Builds and publishes split and universal APKs when a matching version tag is pushed
 # or when triggered manually from the GitHub Actions tab.
 #
-# Recommended for consistent updates without reinstalling:
+# Required for consistent updates without reinstalling:
 # Add KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD
-# under GitHub Settings → Secrets and variables → Actions.
+# under GitHub Settings → Secrets and variables → Actions. The job fails if any is missing,
+# so a release can never silently use a different (debug) signing key.
 name: Release
 
 on:
@@ -121,6 +122,18 @@ jobs:
           } > android/key.properties
 
           mkdir -p dist
+          # Publish the signing certificate fingerprint next to the APKs. Every release must
+          # show the same SHA-256; compare it before publishing to be sure the update will
+          # install over the previous version without uninstalling it.
+          cert_sha256=$(keytool -list -v -keystore android/keystore/release.p12 \
+            -storetype PKCS12 -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" \
+            | sed -n 's/^[[:space:]]*SHA256: //p' | head -n 1)
+          if [ -z "$cert_sha256" ]; then
+            echo "::error::Could not read the release certificate fingerprint from the keystore."
+            exit 1
+          fi
+          printf 'SHA-256: %s\n' "$cert_sha256" > dist/SIGNING_CERT.txt
+
           flutter build apk --release --split-per-abi --no-pub
           for abi in arm64-v8a armeabi-v7a x86_64; do
             apk="build/app/outputs/flutter-apk/app-$abi-release.apk"
@@ -150,3 +163,4 @@ jobs:
           files: |
             dist/*.apk
             dist/SHA256SUMS
+            dist/SIGNING_CERT.txt

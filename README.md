@@ -13,18 +13,49 @@ MiliConfig VPN brings customizable Cloudflare Workers & Pages deployment, **VLES
   - **696 Clean IP Pool (21 Countries):** Browse by country, lock a **Fixed IP**, or apply a random batch to VLESS Clean IPs in 1 tap.
   - **Mili Presets:** 1-tap TCP Fragment presets (`Mili Balanced`, `Mili Aggressive DPI Bypass`, `Mili Stealth`, `Mili High-Speed`), WARP OBF profiles (`OBF LITE`, `OBF BALANCED`, `OBF AGGRESSIVE`, `OBF STEALTH`), and DNS/Anti-Sanction presets.
   - **Mili Panel Sync:** Pull live `/ips` from any deployed MiliConfig Panel or import user subscriptions directly into Chain Proxies.
-- **Vibrant Mili UI (7 Themes):** Neon Green AMOLED (default), Dark Emerald, Cyber Blue, Quantum Purple, Amber Gold, Blaze Fire, and Daylight Emerald — paired with Mili's glowing neon shield logo and animated ambient canvas.
+- **Vibrant Mili UI (7 Themes):** Neon Green AMOLED (default), Dark Emerald, Cyber Blue, Quantum Purple, Amber Gold, Blaze Fire, and Daylight Emerald — paired with Mili's glowing metallic M emblem and animated ambient canvas.
 - **Everyday Power Tools:** Per-app proxy, Chain Proxies (VLESS/VMess/Trojan/Shadowsocks/WireGuard/Hysteria), Routing rules, DNS/FakeDNS, LAN sharing, Live Logs, and Config import/export.
 
 ## Building & Releasing APKs (GitHub Actions)
 
-1. Push this repository to GitHub.
-2. (Optional) Add `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, and `KEY_PASSWORD` in **Settings → Secrets and variables → Actions** for signed release APKs.
-3. Tag a release matching `pubspec.yaml`:
+Every release APK must be signed with the **same** keystore. Android only installs an update when the package name and signing certificate match; otherwise it asks the user to uninstall the installed app first. The release workflow restores one persistent keystore from repository secrets and **fails** when any of them is missing — it never falls back to a debug key in CI.
+
+### Required repository secrets
+
+| Secret | Value |
+| --- | --- |
+| `KEYSTORE_BASE64` | Base64 of the PKCS12 keystore (`base64 -w0 release.p12`) |
+| `KEYSTORE_PASSWORD` | Keystore password |
+| `KEY_ALIAS` | Key alias inside the keystore (for example `miliconfig`) |
+| `KEY_PASSWORD` | Key password (for PKCS12 usually the same as the store password) |
+
+Set them under **Settings → Secrets and variables → Actions**. Keep the `.p12` and both passwords in two offline backups. Never create a new key for an existing app: that would force every user to uninstall and lose the update path.
+
+### First-time setup (new app only)
+
+```bash
+keytool -genkeypair -v -keystore release.p12 -storetype PKCS12 \
+  -alias miliconfig -keyalg RSA -keysize 4096 -validity 10000
+base64 -w0 release.p12 > release.p12.b64
+```
+
+Paste the contents of `release.p12.b64` into `KEYSTORE_BASE64`. Never commit `release.p12`, `release.p12.b64`, `android/key.properties`, or `android/keystore/release.p12` (all are git-ignored).
+
+### Release checklist
+
+1. Bump `version` in `pubspec.yaml` (`2.1.1+7`: the number after `+` is the Android `versionCode` and must always increase).
+2. Update `RELEASE_NOTES.md`.
+3. Commit and push `main`.
+4. Tag the matching version and push the tag:
    ```bash
-   git tag v1.2.1 && git push origin v1.2.1
+   git tag v2.1.1 && git push origin v2.1.1
    ```
-4. GitHub Actions (`.github/workflows/release.yml`) automatically builds `xray.aar`, `libpsiphon.so`, fetches Tor & Iran geo rules, minifies `worker/worker.js`, and publishes split + universal APKs.
+5. GitHub Actions (`.github/workflows/release.yml`) builds `xray.aar`, `libpsiphon.so`, fetches Tor and Iran geo rules, minifies `worker/worker.js`, runs `flutter test`, and signs split + universal APKs.
+6. The workflow uploads `SIGNING_CERT.txt` next to the APKs. Record its `SHA-256` fingerprint and compare it on every later release; it must never change.
+
+### Installing updates
+
+A build installed before v2.1.0 can still require one uninstall when moving to v2.1.0 or newer, because those older builds used a different or debug key. From v2.1.0 onward every release uses the keystore above, so newer APKs install directly over the installed app and keep its data. Do not change the four secrets after users have installed a release.
 
 ## License
 

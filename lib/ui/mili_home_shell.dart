@@ -26,10 +26,20 @@ import 'mili_bettbox_settings.dart';
 import 'mili_i18n.dart';
 import 'mili_logo.dart';
 import 'mili_toolbox_page.dart';
+import 'region_picker.dart';
 import 'theme.dart';
 
 const _tabular = TextStyle(fontFeatures: [FontFeature.tabularFigures()]);
 const _activeGreen = Color(0xFF34D399);
+
+/// Psiphon and Tor use one shared exit location; changing it asks for a reconnect.
+Future<void> _pickExitRegion(BuildContext context, AppState state) async {
+  final picked = await showExitRegionPicker(
+    context,
+    selected: state.device.exitRegion,
+  );
+  if (picked != null) state.setExitRegion(picked);
+}
 
 /// MiliConfig v2.0.0 — Full Bettbox Architecture:
 /// 1) Dashboard: StartButton Hero, Live non-freezing Bezier Speed Chart,
@@ -387,6 +397,17 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
                             state.setExitNode(nodes[idx]);
                           },
                   ),
+                  if (state.exitNode == ExitNode.psiphon ||
+                      state.exitNode == ExitNode.tor)
+                    BettboxChip(
+                      icon: Symbols.location_on_rounded,
+                      label:
+                          '${MiliLocale.t("لوکیشن", "Location")}: ${exitRegionLabel(state.device.exitRegion)}',
+                      active: true,
+                      onTap: state.isBusy
+                          ? null
+                          : () => _pickExitRegion(context, state),
+                    ),
                 ],
               ),
             ],
@@ -886,8 +907,11 @@ class _BettboxNodesTabState extends State<_BettboxNodesTab> {
         BettboxTileCard(
           title: MiliLocale.t('نودهای داخلی بدون نیاز به ورکر', 'Built-in Core Nodes'),
           icon: Symbols.shield_rounded,
-          child: GridView.count(
-            shrinkWrap: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GridView.count(
+                shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
             mainAxisSpacing: 8,
@@ -908,6 +932,39 @@ class _BettboxNodesTabState extends State<_BettboxNodesTab> {
                   selected: state.mode == m.$1,
                   onTap: () => state.setMode(m.$1),
                 ),
+            ],
+          ),
+          if (state.exitNode == ExitNode.psiphon ||
+              state.exitNode == ExitNode.tor) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Symbols.location_on_rounded,
+                  size: 17,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  MiliLocale.t('لوکیشن خروجی', 'Exit location'),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                BettboxChip(
+                  icon: Symbols.public_rounded,
+                  label: exitRegionLabel(state.device.exitRegion),
+                  active: true,
+                  onTap: state.isBusy
+                      ? null
+                      : () => _pickExitRegion(context, state),
+                ),
+              ],
+            ),
+          ],
             ],
           ),
         ),
