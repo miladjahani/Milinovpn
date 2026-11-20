@@ -21,11 +21,9 @@ export default {
                 return handleWebSocketProxy(request, url, settings);
             }
 
-            // VLESS over XHTTP (HTTP streaming POST to /<uuid>/xhttp or /xhttp)
-            if (
-                request.method === 'POST' &&
-                (url.pathname === `/${settings.id}/xhttp` || url.pathname === '/xhttp')
-            ) {
+            // VLESS over XHTTP (Xray stream-one: one streaming POST and its response, to
+            // /<uuid>/xhttp or /xhttp; Xray appends a trailing slash to the configured path).
+            if (request.method === 'POST' && isXhttpPath(url.pathname, settings.id)) {
                 return handleVlessXhttp(request, settings);
             }
 
@@ -83,6 +81,12 @@ function handleDoH(request) {
     return fetch(new Request(target, request));
 }
 
+function isXhttpPath(pathname, userId) {
+    const path = String(pathname || '').replace(/\/+$/, '');
+    return path === `/${userId}/xhttp` || path === '/xhttp' ||
+        path === `/${userId}/splithttp` || path === '/splithttp';
+}
+
 // ---------------------------------------------------------------------------
 // Multi-Protocol WebSocket Handler: VLESS, Trojan, and Shadowsocks (WS)
 // ---------------------------------------------------------------------------
@@ -96,40 +100,131 @@ async function handleWebSocketProxy(request, url, settings) {
     const readableWebSocketStream = makeReadableWebSocketStream(webSocket, earlyDataHeader);
     const isShadowsocksPath = url.pathname.startsWith(`/${settings.id}/ss`);
 
-    const remoteSocket = { value: null };
+    if (isShadowsocksPath) {
+        // Shadowsocks AEAD (aes-256-gcm, the cipher the app sets) over the authenticated
+        // /<uuid>/ss path: the stream is a salt followed by encrypted length/payload chunks.
+        // Xray rejects the old "none" cipher at startup, which is why SS never connected.
+        handleShadowsocksWebSocket(readableWebSocketStream, webSocket, settings);
+    } else {
+        const remoteSocket = { value: null };
 
-    readableWebSocketStream
-        .pipeTo(new WritableStream({
-            async write(chunk) {
-                if (remoteSocket.value) {
-                    const writer = remoteSocket.value.writable.getWriter();
-                    await writer.write(chunk);
-                    writer.releaseLock();
-                    return;
-                }
+        readableWebSocketStream
+            .pipeTo(new WritableStream({
+                async write(chunk) {
+                    if (remoteSocket.value) {
+                        const writer = remoteSocket.value.writable.getWriter();
+                        await writer.write(chunk);
+                        writer.releaseLock();
+                        return;
+                    }
 
-                const parsed = await parseProtocolHeader(chunk, settings.id, isShadowsocksPath);
-                if (parsed.hasError) throw new Error(parsed.message);
+                    const parsed = await parseProtocolHeader(chunk, settings.id, false);
+                    if (parsed.hasError) throw new Error(parsed.message);
 
-                const rawClientData = chunk.slice(parsed.rawDataIndex);
-                handleTCPOutBound(
-                    remoteSocket,
-                    parsed.addressRemote,
-                    parsed.portRemote,
-                    rawClientData,
-                    webSocket,
-                    parsed.responseHeader,
-                    settings
-                );
-            },
-            close() {
-                safeCloseTcpSocket(remoteSocket.value);
-            },
-        }))
-        .catch(() => safeCloseTcpSocket(remoteSocket.value));
+                    const rawClientData = chunk.slice(parsed.rawDataIndex);
+                    handleTCPOutBound(
+                        remoteSocket,
+                        parsed.addressRemote,
+                        parsed.portRemote,
+                        rawClientData,
+                        webSocket,
+                        parsed.responseHeader,
+                        settings
+                    );
+                },
+                close() {
+                    safeCloseTcpSocket(remoteSocket.value);
+                },
+            }))
+            .catch(() => safeCloseTcpSocket(remoteSocket.value));
+    }
 
     const headers = earlyDataHeader ? { 'Sec-WebSocket-Protocol': earlyDataHeader } : undefined;
     return new Response(null, { status: 101, webSocket: client, headers });
+}
+
+// ---------------------------------------------------------------------------
+// Shadowsocks AEAD over WebSocket (aes-256-gcm)
+// ---------------------------------------------------------------------------
+async function handleShadowsocksWebSocket(readableStream, webSocket, settings) {
+    const decryptor = createSsDecryptor(settings.id);
+    const encryptor = createSsEncryptor(settings.id);
+    let remote = null;
+    let pending = new Uint8Array(0);
+    let closed = false;
+    let sendChain = Promise.resolve();
+
+    const send = (data) => {
+        if (closed || !data || !data.byteLength) return Promise.resolve();
+        sendChain = sendChain
+            .then(() => {
+                if (!closed && webSocket.readyState === WS_READY_STATE_OPEN) webSocket.send(data);
+            })
+            .catch(() => { });
+        return sendChain;
+    };
+
+    const close = () => {
+        closed = true;
+        safeCloseTcpSocket(remote);
+        safeCloseWebSocket(webSocket);
+    };
+
+    const writeRemote = async (data) => {
+        if (!data || !data.byteLength) return;
+        const writer = remote.writable.getWriter();
+        try { await writer.write(data); } finally { try { writer.releaseLock(); } catch { } }
+    };
+
+    const startDownlink = () => {
+        remote.readable
+            .pipeTo(new WritableStream({
+                async write(chunk) {
+                    await send(await encryptor.push(chunk));
+                },
+                close() { close(); },
+                abort() { close(); },
+            }))
+            .catch(close);
+    };
+
+    readableStream
+        .pipeTo(new WritableStream({
+            async write(chunk) {
+                let plain;
+                try { plain = await decryptor.push(toBytes(chunk)); } catch { close(); return; }
+                if (!plain.length) return;
+                if (remote) {
+                    await writeRemote(plain);
+                    return;
+                }
+                pending = concatBytes(pending, plain);
+                const parsed = parseSocks5AddressHeader(pending, 0, null);
+                if (parsed.needMore) return;
+                if (parsed.hasError) { close(); return; }
+                try {
+                    remote = await connectTcp(parsed.addressRemote, parsed.portRemote);
+                } catch {
+                    close();
+                    return;
+                }
+                remote.closed.catch(() => { }).finally(() => close());
+                startDownlink();
+                const data = pending.slice(parsed.rawDataIndex);
+                pending = new Uint8Array(0);
+                if (data.byteLength) await writeRemote(data);
+            },
+            close() { close(); },
+            abort() { close(); },
+        }))
+        .catch(close);
+}
+
+async function connectTcp(address, port) {
+    // Shadowsocks' payload is already encrypted for the target: a proxy-IP fallback would send
+    // that ciphertext to the wrong server, so always dial the requested address.
+    if (address.includes(':') && !address.startsWith('[')) address = `[${address}]`;
+    return connect({ hostname: address, port });
 }
 
 // ---------------------------------------------------------------------------
@@ -140,31 +235,36 @@ async function handleVlessXhttp(request, settings) {
         return new Response('Bad request', { status: 400 });
     }
     const reader = request.body.getReader();
-    const first = await reader.read();
-    if (first.done || !first.value || first.value.byteLength < 24) {
-        return new Response('Invalid XHTTP payload', { status: 400 });
+    // The VLESS request header and the first payload can be split across body chunks.
+    let buffered = new Uint8Array(0);
+    let header = null;
+    while (!header) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value || !value.byteLength) continue;
+        buffered = concatBytes(buffered, toBytes(value));
+        if (buffered.length < 24) continue;
+        header = parseVlessHeader(buffered.buffer.slice(buffered.byteOffset, buffered.byteOffset + buffered.byteLength), settings.id);
+        if (header.hasError && buffered.length > 2048) break;
+        if (header.hasError) header = null;
     }
-
-    const firstBuf = first.value.buffer.slice(
-        first.value.byteOffset,
-        first.value.byteOffset + first.value.byteLength
-    );
-    const header = parseVlessHeader(firstBuf, settings.id);
-    if (header.hasError) {
+    if (!header || header.hasError) {
+        try { reader.releaseLock(); } catch { }
         return new Response('Unauthorized', { status: 403 });
     }
 
-    const initialData = firstBuf.slice(header.rawDataIndex);
+    const initialData = buffered.slice(header.rawDataIndex);
     const responseHeader = new Uint8Array([header.version[0], 0]);
 
     let tcpSocket;
     try {
         tcpSocket = await openTcpWithFallback(header.addressRemote, header.portRemote, initialData, settings);
     } catch {
+        try { reader.releaseLock(); } catch { }
         return new Response('Upstream error', { status: 502 });
     }
 
-    // Pump remaining XHTTP request body into TCP socket
+    // Xray stream-one: the rest of this POST body is the uplink.
     (async () => {
         try {
             const writer = tcpSocket.writable.getWriter();
@@ -179,23 +279,18 @@ async function handleVlessXhttp(request, settings) {
         }
     })();
 
-    let sentHeader = false;
     const responseStream = new ReadableStream({
         async start(controller) {
+            // Send the VLESS response header at once: it starts the streaming response (so the
+            // request is no longer idle) and Xray's reader expects it before any payload.
+            controller.enqueue(responseHeader);
             try {
                 const tcpReader = tcpSocket.readable.getReader();
                 while (true) {
                     const { done, value } = await tcpReader.read();
                     if (done) break;
-                    if (!sentHeader) {
-                        const combined = new Uint8Array(responseHeader.length + value.byteLength);
-                        combined.set(responseHeader, 0);
-                        combined.set(value, responseHeader.length);
-                        controller.enqueue(combined);
-                        sentHeader = true;
-                    } else {
-                        controller.enqueue(value);
-                    }
+                    if (!value || !value.byteLength) continue;
+                    controller.enqueue(value);
                 }
                 controller.close();
             } catch {
@@ -212,7 +307,10 @@ async function handleVlessXhttp(request, settings) {
     return new Response(responseStream, {
         status: 200,
         headers: {
-            'Content-Type': 'application/octet-stream',
+            // Xray's stream-one server answers with an SSE-looking response; the body is still
+            // the raw VLESS downlink stream.
+            'Content-Type': 'text/event-stream',
+            'X-Accel-Buffering': 'no',
             'Cache-Control': 'no-store',
         },
     });
@@ -329,19 +427,24 @@ function parseTrojanHeader(buffer, password) {
 
 function parseSocks5AddressHeader(buffer, offset, responseHeader) {
     const bytes = new Uint8Array(buffer);
-    if (bytes.length < offset + 7) return { hasError: true, message: 'short socks5 header' };
-    const atyp = bytes[offset];
+    const need = () => ({ hasError: true, needMore: true, message: 'short socks5 header' });
+    if (bytes.length < offset + 1) return need();
+    const atyp = bytes[offset] & 0x0f;
     let idx = offset + 1;
     let addressRemote = '';
 
     if (atyp === 1) {
+        if (bytes.length < idx + 4 + 2) return need();
         addressRemote = bytes.slice(idx, idx + 4).join('.');
         idx += 4;
     } else if (atyp === 3) {
+        if (bytes.length < idx + 1) return need();
         const len = bytes[idx++];
+        if (bytes.length < idx + len + 2) return need();
         addressRemote = new TextDecoder().decode(bytes.slice(idx, idx + len));
         idx += len;
     } else if (atyp === 4) {
+        if (bytes.length < idx + 16 + 2) return need();
         const view = new DataView(buffer.slice(idx, idx + 16));
         const parts = [];
         for (let i = 0; i < 8; i++) parts.push(view.getUint16(i * 2).toString(16));
@@ -565,4 +668,211 @@ function parseHostPort(input) {
         host: ipv6 ? `[${ipv6}]` : host,
         port: port ? Number(port) : 443,
     };
+}
+
+function toBytes(value) {
+    if (value instanceof Uint8Array) return value;
+    if (value instanceof ArrayBuffer) return new Uint8Array(value);
+    if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    if (value && typeof value.arrayBuffer === 'function') return value.arrayBuffer().then((b) => new Uint8Array(b));
+    return new Uint8Array(0);
+}
+
+function concatBytes(...parts) {
+    const flat = parts.filter((p) => p && p.byteLength);
+    if (!flat.length) return new Uint8Array(0);
+    if (flat.length === 1) return flat[0];
+    const total = flat.reduce((n, p) => n + p.byteLength, 0);
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const part of flat) {
+        out.set(part, offset);
+        offset += part.byteLength;
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// Shadowsocks classic AEAD (aes-256-gcm), as Xray-core implements it.
+// key = EVP_BytesToKey(password, MD5); per connection subkey = HKDF-SHA1(key, salt, "ss-subkey").
+// Every TCP chunk is [2-byte length][16-byte tag] then [payload][16-byte tag], with the
+// 12-byte AES-GCM nonce counting up little-endian. The server sends its own salt first.
+// ---------------------------------------------------------------------------
+const SS_KEY_LEN = 32;
+const SS_SALT_LEN = 32;
+const SS_CHUNK_MAX = 0x3fff;
+const SS_INFO = new TextEncoder().encode('ss-subkey');
+const ssKeyCache = new Map();
+
+const MD5_K = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 0x100000000) >>> 0);
+const MD5_S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
+
+function md5(bytes) {
+    const len = bytes.length;
+    const total = (((len + 8) >> 6) + 1) * 64;
+    const padded = new Uint8Array(total);
+    padded.set(bytes);
+    padded[len] = 0x80;
+    const view = new DataView(padded.buffer);
+    const bits = len * 8;
+    view.setUint32(total - 8, bits >>> 0, true);
+    view.setUint32(total - 4, Math.floor(bits / 0x100000000), true);
+
+    let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+    const rotl = (x, n) => ((x << n) | (x >>> (32 - n))) >>> 0;
+    for (let off = 0; off < total; off += 64) {
+        const M = new Array(16);
+        for (let i = 0; i < 16; i++) M[i] = view.getUint32(off + i * 4, true);
+        let A = a0, B = b0, C = c0, D = d0;
+        for (let i = 0; i < 64; i++) {
+            let F, g;
+            if (i < 16) { F = (B & C) | (~B & D); g = i; }
+            else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+            else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) % 16; }
+            else { F = C ^ (B | ~D); g = (7 * i) % 16; }
+            const s = MD5_S[(i >> 4) * 4 + (i % 4)];
+            const tmp = D;
+            D = C;
+            C = B;
+            B = (B + rotl((A + F + MD5_K[i] + M[g]) >>> 0, s)) >>> 0;
+            A = tmp;
+        }
+        a0 = (a0 + A) >>> 0;
+        b0 = (b0 + B) >>> 0;
+        c0 = (c0 + C) >>> 0;
+        d0 = (d0 + D) >>> 0;
+    }
+    const out = new Uint8Array(16);
+    const ov = new DataView(out.buffer);
+    ov.setUint32(0, a0, true);
+    ov.setUint32(4, b0, true);
+    ov.setUint32(8, c0, true);
+    ov.setUint32(12, d0, true);
+    return out;
+}
+
+function ssMasterKey(password) {
+    const cached = ssKeyCache.get(password);
+    if (cached) return cached;
+    const pw = new TextEncoder().encode(password);
+    let key = new Uint8Array(0);
+    let prev = new Uint8Array(0);
+    while (key.length < SS_KEY_LEN) {
+        prev = md5(concatBytes(prev, pw));
+        key = concatBytes(key, prev);
+    }
+    const result = key.slice(0, SS_KEY_LEN);
+    ssKeyCache.set(password, result);
+    return result;
+}
+
+async function hmacSha1(keyBytes, data) {
+    const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+    return new Uint8Array(await crypto.subtle.sign('HMAC', key, data));
+}
+
+async function hkdfSha1(ikm, salt, info, length) {
+    const prk = await hmacSha1(salt, ikm);
+    const out = new Uint8Array(length);
+    let previous = new Uint8Array(0);
+    let offset = 0;
+    for (let counter = 1; offset < length; counter++) {
+        const input = concatBytes(previous, info, new Uint8Array([counter]));
+        previous = await hmacSha1(prk, input);
+        out.set(previous.slice(0, Math.min(previous.length, length - offset)), offset);
+        offset += previous.length;
+    }
+    return out;
+}
+
+function ssNonce(value) {
+    const nonce = new Uint8Array(12);
+    let n = value;
+    for (let i = 0; i < 12; i++) {
+        nonce[i] = n & 0xff;
+        n = Math.floor(n / 256);
+    }
+    return nonce;
+}
+
+async function ssAesKey(password, salt) {
+    const subkey = await hkdfSha1(ssMasterKey(password), salt, SS_INFO, SS_KEY_LEN);
+    return crypto.subtle.importKey('raw', subkey, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+function createSsDecryptor(password) {
+    let key = null;
+    let nonce = 0;
+    let buffer = new Uint8Array(0);
+
+    async function push(chunk) {
+        buffer = concatBytes(buffer, chunk);
+        const parts = [];
+        while (true) {
+            if (!key) {
+                if (buffer.length < SS_SALT_LEN) break;
+                const salt = buffer.slice(0, SS_SALT_LEN);
+                buffer = buffer.slice(SS_SALT_LEN);
+                key = await ssAesKey(password, salt);
+            }
+            if (buffer.length < 18) break;
+            let lengthBytes;
+            try {
+                lengthBytes = new Uint8Array(await crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv: ssNonce(nonce), tagLength: 128 }, key, buffer.slice(0, 18)
+                ));
+            } catch {
+                throw new Error('shadowsocks: bad chunk length');
+            }
+            const length = (lengthBytes[0] << 8) | lengthBytes[1];
+            if (length > SS_CHUNK_MAX) throw new Error('shadowsocks: chunk too large');
+            if (buffer.length < 18 + length + 16) break;
+            const payload = new Uint8Array(await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: ssNonce(nonce + 1), tagLength: 128 },
+                key, buffer.slice(18, 18 + length + 16)
+            ));
+            parts.push(payload);
+            nonce += 2;
+            buffer = buffer.slice(18 + length + 16);
+        }
+        return concatBytes(...parts);
+    }
+
+    return { push };
+}
+
+function createSsEncryptor(password) {
+    let key = null;
+    let salt = null;
+    let nonce = 0;
+    let saltSent = false;
+
+    async function push(data) {
+        if (!data || !data.byteLength) return new Uint8Array(0);
+        if (!key) {
+            salt = crypto.getRandomValues(new Uint8Array(SS_SALT_LEN));
+            key = await ssAesKey(password, salt);
+        }
+        const frames = [];
+        for (let offset = 0; offset < data.length; offset += SS_CHUNK_MAX) {
+            const part = data.slice(offset, offset + SS_CHUNK_MAX);
+            const header = new Uint8Array([part.length >> 8, part.length & 0xff]);
+            frames.push(new Uint8Array(await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: ssNonce(nonce), tagLength: 128 }, key, header
+            )));
+            nonce++;
+            frames.push(new Uint8Array(await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: ssNonce(nonce), tagLength: 128 }, key, part
+            )));
+            nonce++;
+        }
+        const body = concatBytes(...frames);
+        if (!saltSent) {
+            saltSent = true;
+            return concatBytes(salt, body);
+        }
+        return body;
+    }
+
+    return { push };
 }

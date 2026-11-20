@@ -75,9 +75,17 @@ socks://user:pass@192.0.2.2:1080
 
   test('WireGuard and Hysteria2 ride WARP and MASQUE only', () {
     final wg = ChainInfo.of(wireGuardConfToChain(wgConf).link)!;
-    expect(ConnectionMode.values.where(wg.canChainOver), [ConnectionMode.warp, ConnectionMode.masque]);
+    expect(ConnectionMode.values.where(wg.canChainOver), [
+      ConnectionMode.warp,
+      ConnectionMode.masque,
+      ConnectionMode.node,
+    ]);
     final hy2 = ChainInfo.of('hysteria2://secret@192.0.2.3:443')!;
-    expect(ConnectionMode.values.where(hy2.canChainOver), [ConnectionMode.warp, ConnectionMode.masque]);
+    expect(ConnectionMode.values.where(hy2.canChainOver), [
+      ConnectionMode.warp,
+      ConnectionMode.masque,
+      ConnectionMode.node,
+    ]);
     expect(ChainInfo.of('socks://192.0.2.2:1080')!.canChainOver(ConnectionMode.worker), isTrue);
   });
 }

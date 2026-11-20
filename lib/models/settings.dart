@@ -549,6 +549,13 @@ class VlessSettings {
   /// `FALLBACK_URL` variable.
   final String? fallbackUrl;
 
+  /// Cloudflare Workers placement: "auto" (no placement), "smart" (Smart Placement), or
+  /// "targeted" (run near [placementRegion]). Applied when the script is uploaded.
+  final String placement;
+
+  /// A Cloudflare cloud region for targeted placement, in `provider:region` form.
+  final String placementRegion;
+
   const VlessSettings({
     this.remoteDns = const DnsServer('https://8.8.8.8/dns-query'),
     this.ports = const [443],
@@ -561,6 +568,8 @@ class VlessSettings {
     this.upstreamProxy,
     this.proxyIps = const [],
     this.fallbackUrl,
+    this.placement = 'auto',
+    this.placementRegion = 'gcp:us-east4',
   });
 
   static VlessSettings parse(Object? v) {
@@ -578,6 +587,12 @@ class VlessSettings {
       upstreamProxy: _strOrNull(j['upstreamProxy']),
       proxyIps: _strList(j['proxyIps'], d.proxyIps),
       fallbackUrl: _strOrNull(j['fallbackUrl']),
+      placement: _choice(
+        _str(j['placement'], d.placement),
+        const {'auto', 'smart', 'targeted'},
+        d.placement,
+      ),
+      placementRegion: _str(j['placementRegion'], d.placementRegion),
     );
   }
 
@@ -593,6 +608,8 @@ class VlessSettings {
     'upstreamProxy': upstreamProxy,
     'proxyIps': proxyIps,
     'fallbackUrl': fallbackUrl,
+    'placement': placement,
+    'placementRegion': placementRegion,
   };
 }
 
@@ -1163,6 +1180,10 @@ class DeviceSettings {
   /// The selected deployment: `<account id>/<workers or pages>`; empty for the first one.
   final String deployment;
 
+  /// Each scanner's last settings, by scanner protocol name (probe counts, intervals, port,
+  /// mode and custom CIDRs), so opening it again starts where the user left off.
+  final Map<String, Map<String, dynamic>> scanners;
+
   /// The setup wizard was finished (whatever it skipped).
   final bool setupDone;
 
@@ -1190,6 +1211,7 @@ class DeviceSettings {
     this.themeColor = 'neon',
     this.themeMode = 'dark',
     this.deployment = '',
+    this.scanners = const {},
     this.setupDone = false,
   });
 
@@ -1258,6 +1280,11 @@ class DeviceSettings {
       themeColor: _str(theme['color'], d.themeColor),
       themeMode: _str(theme['mode'], d.themeMode),
       deployment: _str(j['deployment'], d.deployment),
+      scanners: {
+        for (final e in _map(j['scanners']).entries)
+          if (e.value is Map)
+            e.key: Map<String, dynamic>.from(e.value as Map),
+      },
       setupDone: _bool(j['setupDone'], d.setupDone),
     );
   }
@@ -1291,6 +1318,7 @@ class DeviceSettings {
     },
     'theme': {'color': themeColor, 'mode': themeMode},
     'deployment': deployment,
+    'scanners': scanners,
     'setupDone': setupDone,
   };
 

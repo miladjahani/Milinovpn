@@ -118,6 +118,22 @@ func (p *scannerProbe) open(ctx context.Context, address string) (scanner.HTTPSe
 			if err != nil {
 				return nil, fmt.Errorf("encode scanner WireGuard peer: %w", err)
 			}
+		} else if rawServers, hasServers := settings["servers"]; hasServers {
+			// Trojan and Shadowsocks outbounds keep the target in settings.servers[0], not at
+			// the top level: replace its address and keep the configured port.
+			var servers []map[string]json.RawMessage
+			if err := json.Unmarshal(rawServers, &servers); err != nil || len(servers) == 0 {
+				return nil, errors.New("scanner outbound servers must be a non-empty array")
+			}
+			encodedAddress, err := json.Marshal(address)
+			if err != nil {
+				return nil, fmt.Errorf("encode scanner address: %w", err)
+			}
+			servers[0]["address"] = encodedAddress
+			settings["servers"], err = json.Marshal(servers)
+			if err != nil {
+				return nil, fmt.Errorf("encode scanner servers: %w", err)
+			}
 		} else {
 			encodedAddress, err := json.Marshal(address)
 			if err != nil {

@@ -90,7 +90,7 @@ class SettingsPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 104),
         children: [
-          const SectionHeader('MiliConfig Hub'),
+          SectionHeader(MiliLocale.t('ابزارها و مرکز کنترل', 'Tools & Control Center')),
           SettingsCard(
             children: [
               ListTile(
@@ -104,7 +104,7 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
-          const SectionHeader('Global'),
+          SectionHeader(MiliLocale.t('شبکه و DNS', 'Network & DNS')),
           SettingsCard(
             children: [
               ListTile(
@@ -234,10 +234,41 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
 
-          const SectionHeader('VLESS'),
+          SectionHeader(MiliLocale.t('اتصال · ورکر (VLESS / XHTTP / Shadowsocks)', 'Connection · Worker (VLESS / XHTTP / Shadowsocks)')),
           SettingsCard(
             children: [
               const _DeploymentTile(),
+              const ChoicePref(
+                'device.connection.workerProtocol',
+                'Worker protocol',
+                {
+                  'vless_ws': 'VLESS · WS',
+                  'vless_xhttp': 'VLESS · XHTTP (stream-one)',
+                  'trojan_ws': 'Trojan · WS',
+                  'shadowsocks_ws': 'Shadowsocks · WS (AEAD)',
+                },
+                icon: Symbols.hub_rounded,
+              ),
+              const ChoicePref(
+                'vless.placement',
+                'Worker placement',
+                {'auto': 'Auto', 'smart': 'Smart Placement', 'targeted': 'Targeted region'},
+                icon: Symbols.pin_drop_rounded,
+              ),
+              if (p.vless.placement == 'targeted')
+                TextPref(
+                  'vless.placementRegion',
+                  'Placement region',
+                  icon: Symbols.public_rounded,
+                  hint: 'gcp:us-east4',
+                  help:
+                      'Cloud region for targeted placement, as provider:region '
+                      '(for example gcp:us-east4 or aws:us-east-1).',
+                  validator: (v) =>
+                      RegExp(r'^[a-z0-9-]+:[a-z0-9-]+$').hasMatch(v)
+                      ? null
+                      : 'Use provider:region, for example gcp:us-east4',
+                ),
               const TextPref(
                 'vless.remoteDns.server',
                 'Remote DNS',
@@ -393,7 +424,7 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 16),
           SettingsCard(children: [const _CloudflareAccountsTile()]),
 
-          const SectionHeader('MASQUE'),
+          SectionHeader(MiliLocale.t('اتصال · MASQUE', 'Connection · MASQUE')),
           SettingsCard(
             children: [
               const TextPref(
@@ -489,7 +520,7 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 16),
           SettingsCard(children: [const _MasqueAccountTile()]),
 
-          const SectionHeader('WARP'),
+          SectionHeader(MiliLocale.t('اتصال · WARP', 'Connection · WARP')),
           SettingsCard(
             children: [
               const TextPref(
@@ -567,7 +598,7 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 16),
           SettingsCard(children: [const _WarpAccountTile()]),
 
-          const SectionHeader('Tor'),
+          SectionHeader(MiliLocale.t('اتصال · تور', 'Connection · Tor')),
           SettingsCard(
             children: [
               ListTile(
@@ -593,7 +624,7 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
 
-          const SectionHeader('Serverless'),
+          SectionHeader(MiliLocale.t('اتصال · سرورلس', 'Connection · Serverless')),
           SettingsCard(
             children: [
               ListTile(
@@ -642,7 +673,7 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 16),
           SettingsCard(children: [const _MitmCaTile()]),
 
-          const SectionHeader('Routing'),
+          SectionHeader(MiliLocale.t('مسیریابی و قوانین', 'Routing & Rules')),
           const SettingsCard(
             children: [
               ChoicePref(
@@ -680,7 +711,7 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
 
-          const SectionHeader('Import / Export'),
+          SectionHeader(MiliLocale.t('داده‌ها (ورود / خروج)', 'Data (Import / Export)')),
           const SettingsCard(
             children: [
               _ExportSettingsTile(download: false),
@@ -689,12 +720,12 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
 
-          const SectionHeader('Appearance'),
+          SectionHeader(MiliLocale.t('برنامه · ظاهر، زبان و تم', 'App · Appearance, Language & Theme')),
           const SettingsCard(
             children: [_LanguageTile(), _ThemeModeTile(), _ThemeColorTile()],
           ),
 
-          const SectionHeader('About'),
+          SectionHeader(MiliLocale.t('برنامه · درباره', 'App · About')),
           SettingsCard(
             children: [
               const _VersionTile(),
@@ -1328,7 +1359,7 @@ class _CloudflareAccountsTile extends StatelessWidget {
   }
 }
 
-const sourceCodeUrl = 'https://github.com/miladjahani/Milizeroooo';
+const sourceCodeUrl = 'https://github.com/miladjahani/Milinovpn';
 
 /// The installed app's version (pubspec.yaml's); opens the cores' versions.
 class _VersionTile extends StatelessWidget {

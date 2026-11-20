@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/settings.dart';
-import '../models/theme_color.dart';
 import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
 import 'bettbox_widgets.dart';
@@ -44,8 +43,6 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final d = state.device;
     final p = state.profile;
 
     return ListView(
@@ -71,212 +68,10 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
         ),
         const SizedBox(height: 14),
 
-        // 1. Worker Protocol Card (VLESS WS / VLESS XHTTP / Trojan WS / Shadowsocks WS)
-        if (_matches('پروتکل ورکر', 'Worker Protocol', 'vless xhttp trojan shadowsocks ss')) ...[
-          BettboxTileCard(
-            title: MiliLocale.t(
-              'پروتکل ورکر کلادفلر (VLESS · XHTTP · Trojan · SS)',
-              'Cloudflare Worker Protocol',
-            ),
-            icon: Symbols.hub_rounded,
-            watermarkIcon: Symbols.hub_rounded,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final proto in const [
-                  ('vless_ws', 'VLESS · WS'),
-                  ('vless_xhttp', 'VLESS · XHTTP'),
-                  ('trojan_ws', 'Trojan · WS'),
-                  ('shadowsocks_ws', 'Shadowsocks · WS'),
-                ])
-                  ChoiceChip(
-                    selected: d.workerProtocol == proto.$1,
-                    label: Text(proto.$2),
-                    visualDensity: VisualDensity.compact,
-                    onSelected: state.isBusy
-                        ? null
-                        : (_) {
-                            state.write('device.connection.workerProtocol', proto.$1);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  MiliLocale.t(
-                                    'پروتکل ورکر روی ${proto.$2} تنظیم شد',
-                                    'Worker protocol set to ${proto.$2}',
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
+        // Theme, language, worker protocol and everything else live in one place (Settings);
+        // the Advanced row below opens it, so the same controls don't appear twice.
 
-        // 2. Bettbox Visual Appearance & Theme Cards
-        if (_matches('ظاهر و تم و زبان', 'Appearance Theme Language', 'dark light neon')) ...[
-          BettboxTileCard(
-            title: MiliLocale.t('ظاهر، زبان و تم‌ها', 'Appearance, Language & Themes'),
-            icon: Symbols.palette_rounded,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Language Row
-                Row(
-                  children: [
-                    Icon(Symbols.translate_rounded, size: 19, color: scheme.primary),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        MiliLocale.t('زبان برنامه', 'Language'),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    SegmentedButton<String>(
-                      showSelectedIcon: false,
-                      style: const ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      segments: const [
-                        ButtonSegment(value: 'fa', label: Text('فارسی')),
-                        ButtonSegment(value: 'en', label: Text('EN')),
-                      ],
-                      selected: {MiliLocale.code.value},
-                      onSelectionChanged: (s) => MiliLocale.setLang(s.first),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Theme Mode Row
-                ValueListenableBuilder<ThemeMode>(
-                  valueListenable: state.themeMode,
-                  builder: (context, mode, _) => Row(
-                    children: [
-                      Icon(Symbols.dark_mode_rounded, size: 19, color: scheme.primary),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          MiliLocale.t('حالت نمایش', 'Theme Mode'),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      SegmentedButton<ThemeMode>(
-                        showSelectedIcon: false,
-                        style: const ButtonStyle(
-                          visualDensity: VisualDensity.compact,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        segments: [
-                          ButtonSegment(
-                            value: ThemeMode.dark,
-                            label: Text(MiliLocale.t('تیره', 'Dark')),
-                          ),
-                          ButtonSegment(
-                            value: ThemeMode.light,
-                            label: Text(MiliLocale.t('روشن', 'Light')),
-                          ),
-                          ButtonSegment(
-                            value: ThemeMode.system,
-                            label: Text(MiliLocale.t('خودکار', 'Auto')),
-                          ),
-                        ],
-                        selected: {mode},
-                        onSelectionChanged: (s) => state.setThemeMode(s.first),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                // Bettbox-style visual Theme Preview Cards
-                ValueListenableBuilder<ThemeColor>(
-                  valueListenable: state.themeColor,
-                  builder: (context, selected, _) => SizedBox(
-                    height: 76,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        for (final c in ThemeColor.values)
-                          Padding(
-                            padding: const EdgeInsetsDirectional.only(end: 10),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () => state.setThemeColor(c),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 108,
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  color: c.darkCard,
-                                  border: Border.all(
-                                    color: selected == c
-                                        ? c.seed
-                                        : c.seed.withValues(alpha: 0.25),
-                                    width: selected == c ? 2.0 : 0.9,
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 14,
-                                          height: 14,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: c.seed,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Container(
-                                          width: 10,
-                                          height: 10,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: c.accent,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        if (selected == c)
-                                          Icon(
-                                            Symbols.check_circle_rounded,
-                                            size: 15,
-                                            color: c.seed,
-                                          ),
-                                      ],
-                                    ),
-                                    Text(
-                                      c.label,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFFEAF7EE),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-
-        // 3. Core, Accounts & Routing Section (Bettbox Tools List)
+        // 1. Core, Accounts & Routing Section (Bettbox Tools List)
         BettboxTileCard(
           title: MiliLocale.t('اکانت‌ها، زنجیره و هسته', 'Accounts, Chains & Core'),
           icon: Symbols.dns_rounded,

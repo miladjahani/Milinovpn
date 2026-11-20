@@ -32,7 +32,10 @@ enum ConnectionMode {
   tor('Tor'),
 
   /// Direct packet mode: TLS fragmentation for TCP and UDP noise.
-  serverless('Serverless');
+  serverless('Serverless'),
+
+  /// One chain proxy used as the only outbound, like a standalone proxy client.
+  node('Node');
 
   final String label;
   const ConnectionMode(this.label);
@@ -44,13 +47,17 @@ enum ConnectionMode {
   bool get isWarpLike => this == warp || this == masque;
 
   /// Modes whose running connection is checked before it is reported as connected.
-  bool get verifiesConnection => this == worker || isWarpLike;
+  bool get verifiesConnection => this == worker || isWarpLike || this == node;
 
   /// Modes that connect through the deployed worker.
   bool get needsWorker => this == worker;
 
   /// Worker and WARP come in [ConnectionVariant]s.
   bool get hasVariants => this == worker || this == warp;
+
+  /// A direct node has no exit behind it: the node is the connection.
+  bool get isNode => this == node;
+
 }
 
 /// Worker: Normal, Fragment or Browser Dialer. WARP: Normal or Obfuscated.
@@ -305,6 +312,8 @@ class XrayConfigBuilder {
   ) {
     if (mode == ConnectionMode.psiphon) return ExitNode.psiphon;
     if (mode == ConnectionMode.tor) return ExitNode.tor;
+    // The node itself is the connection; there is no separate exit behind it.
+    if (mode == ConnectionMode.node) return ExitNode.worker;
     if (mode == ConnectionMode.serverless &&
         serverlessModeOf(device) == ServerlessMode.dns) {
       return ExitNode.worker;
@@ -474,6 +483,7 @@ class XrayConfigBuilder {
         ServerlessMode.packet => _buildServerlessPacket(),
       };
     }
+    if (mode == ConnectionMode.node) return _buildNode();
     if (_exitType) {
       if (mode == ConnectionMode.tor &&
           device.torBridge == 'custom' &&
@@ -500,6 +510,21 @@ class XrayConfigBuilder {
       return _buildBrowserDialer(p, chain);
     }
     return _buildBestPing(p, isFragment, chain);
+  }
+
+  /// A chain proxy used as the only outbound, like a standalone client (no worker, no exit
+  /// dialer). The first outbound is routing's default, so all traffic goes through it.
+  Future<XrayBuild> _buildNode() async {
+    final chain = chainFor(ConnectionMode.node, device, profile.chains);
+    if (chain == null) {
+      throw StateError('Add a node in Nodes → Chain proxies first.');
+    }
+    final config = await _buildConfig(
+      outbounds: [_chainOutboundFor(chain, tag: 'proxy', direct: true)],
+      isBalancer: false,
+      outboundAddrs: const [],
+    );
+    return XrayBuild(config);
   }
 
   /// One outbound to the worker's custom domain, else its workers.dev / pages.dev host
@@ -1423,13 +1448,14 @@ class XrayConfigBuilder {
 
     if (_hasExit) rules.insertAll(0, exitWorkerlessRules);
     // The worker and Tor only carry TCP (the worker also DNS); refuse other UDP so apps fall
-    // back to TCP fast. Psiphon carries UDP (over its udpgw), and the chain proxy is the exit
-    // for everything, UDP included.
+    // back to TCP fast. Psiphon carries UDP (over its udpgw), the chain proxy is the exit for
+    // everything, and a standalone node carries UDP too (its protocol decides).
     final tcpOnly =
         _exit == ExitNode.tor ||
         (!isServerlessPacket &&
             !isServerlessDns &&
             !isWarp &&
+            _mode != ConnectionMode.node &&
             _exit != ExitNode.psiphon &&
             _exit != ExitNode.chain);
     if (tcpOnly) {
@@ -1571,8 +1597,10 @@ class XrayConfigBuilder {
             'network': 'xhttp',
             'xhttpSettings': {
               'host': host,
-              'path': '/$uuid/xhttp',
-              'mode': 'auto',
+              // The worker streams one POST and its response, i.e. Xray's stream-one. Xray
+              // appends a trailing slash to the request path itself.
+              'path': '/$uuid/xhttp/',
+              'mode': 'stream-one',
             },
           }
         : {
@@ -1596,12 +1624,15 @@ class XrayConfigBuilder {
       };
     } else if (proto == 'shadowsocks_ws') {
       xrayProtocol = 'shadowsocks';
+      // Xray-core's shadowsocks implementation rejects CipherType_NONE ("Unsupported
+      // cipher"), which is why the old "none" setting never connected. The worker implements
+      // this classic AEAD cipher (aes-256-gcm, EVP_BytesToKey + HKDF-SHA1, length chunks).
       xraySettings = {
         'servers': [
           {
             'address': address,
             'port': port,
-            'method': 'none',
+            'method': 'aes-256-gcm',
             'password': uuid,
           },
         ],
@@ -1741,7 +1772,11 @@ class XrayConfigBuilder {
 
   /// A Hysteria2 chain proxy (QUIC, so over WARP / MASQUE only), dialed through the connection.
   /// Port hopping (the link's mport) and salamander obfuscation go in finalmask.
-  Map<String, dynamic> _hysteria2Chain(ProxyUri p) {
+  Map<String, dynamic> _hysteria2Chain(
+    ProxyUri p, {
+    String tag = 'exit',
+    bool direct = false,
+  }) {
     final obfsPassword = p['obfs'] == 'salamander' ? p['obfs-password'] : null;
     // Xray applies the UDP masks in reverse, and udphop must be the one that dials: it goes last.
     final masks = [
@@ -1769,15 +1804,19 @@ class XrayConfigBuilder {
         'security': 'tls',
         'tlsSettings': {'serverName': p['sni'] ?? p.server, ..._pinning(p)},
         if (masks.isNotEmpty) 'finalmask': {'udp': masks},
-        'sockopt': {'dialerProxy': 'exit-dialer'},
+        if (!direct) 'sockopt': {'dialerProxy': 'exit-dialer'},
       },
-      'tag': 'exit',
+      'tag': tag,
     };
   }
 
   /// A WireGuard chain proxy, dialed through the connection like WARP on WARP; its config's DNS
   /// servers resolve names inside the tunnel (remoteDNS, IPs only).
-  Map<String, dynamic> _wireGuardChain(ProxyUri p) {
+  Map<String, dynamic> _wireGuardChain(
+    ProxyUri p, {
+    String tag = 'exit',
+    bool direct = false,
+  }) {
     List<String> list(String? v) => [
       for (final s in (v ?? '').split(','))
         if (s.trim().isNotEmpty) s.trim(),
@@ -1808,9 +1847,9 @@ class XrayConfigBuilder {
         if (dns.isNotEmpty) 'remoteDNS': dns,
       },
       'streamSettings': {
-        'sockopt': {'dialerProxy': 'exit-dialer'},
+        if (!direct) 'sockopt': {'dialerProxy': 'exit-dialer'},
       },
-      'tag': 'exit',
+      'tag': tag,
     };
   }
 
@@ -1868,14 +1907,28 @@ class XrayConfigBuilder {
     if (chain == null) {
       throw StateError('Add a chain proxy in Settings → Chain proxies first.');
     }
+    return _chainOutboundFor(chain, tag: 'exit');
+  }
+
+  /// [chain] as an outbound: the connection's exit (dialed through the balancer) or, with
+  /// [direct], a standalone node that dials the internet itself.
+  Map<String, dynamic> _chainOutboundFor(
+    ChainProxy chain, {
+    required String tag,
+    bool direct = false,
+  }) {
     final ProxyUri p;
     try {
       p = ProxyUri.parse(chain.link);
     } on FormatException catch (e) {
       throw StateError('Invalid chain proxy ${chain.name}: ${e.message}');
     }
-    if (p.protocol == 'wireguard') return _wireGuardChain(p);
-    if (p.protocol == 'hysteria2') return _hysteria2Chain(p);
+    if (p.protocol == 'wireguard') {
+      return _wireGuardChain(p, tag: tag, direct: direct);
+    }
+    if (p.protocol == 'hysteria2') {
+      return _hysteria2Chain(p, tag: tag, direct: direct);
+    }
 
     final type = p['type'] ?? 'raw';
     final security = p['security'];
@@ -1899,7 +1952,10 @@ class XrayConfigBuilder {
           'spiderX': p['spx'],
           'show': false,
         },
-      'sockopt': _sockopt(domainStrategy: 'UseIP', dialerProxy: 'exit-dialer'),
+      'sockopt': _sockopt(
+        domainStrategy: 'UseIP',
+        dialerProxy: direct ? null : 'exit-dialer',
+      ),
     };
     final enableMux =
         !(security == 'reality' || type == 'grpc' || type == 'xhttp');
@@ -1949,7 +2005,7 @@ class XrayConfigBuilder {
         },
       'settings': settings,
       'streamSettings': streamSettings,
-      'tag': 'exit',
+      'tag': tag,
     };
   }
 

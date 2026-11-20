@@ -30,8 +30,8 @@ class CloudflareApi {
 
   /// The bundled worker's version, bumped with every change to worker/worker.js; deployments
   /// older than [minWorkerVersion] are redeployed automatically, the rest offer an update.
-  static const workerVersion = 2;
-  static const minWorkerVersion = 2;
+  static const workerVersion = 3;
+  static const minWorkerVersion = 3;
 
   /// The worker's only binding (plain text): base64 of a JSON object, see [encodeEnv].
   static const envVar = 'ENV';
@@ -164,8 +164,15 @@ class CloudflareApi {
     return '${result['subdomain']}';
   }
 
-  /// Uploads the worker script with its ENV binding (replacing every other binding).
-  Future<void> uploadScript(String accountId, String scriptName, String env) async {
+  /// Uploads the worker script with its ENV binding (replacing every other binding), and its
+  /// placement: none, Cloudflare's Smart Placement, or targeted at [placementRegion].
+  Future<void> uploadScript(
+    String accountId,
+    String scriptName,
+    String env, {
+    String placement = 'auto',
+    String placementRegion = '',
+  }) async {
     final script = await rootBundle.loadString(workerAsset);
     final metadata = {
       'main_module': 'worker.js',
@@ -173,6 +180,13 @@ class CloudflareApi {
       'bindings': [
         {'type': 'plain_text', 'name': envVar, 'text': env},
       ],
+      if (placement == 'smart')
+        'placement': {'mode': 'smart'}
+      else if (placement == 'targeted' && placementRegion.trim().isNotEmpty)
+        'placement': {
+          'mode': 'targeted',
+          'region': placementRegion.trim(),
+        },
     };
     await _sendMultipart('PUT', '/accounts/$accountId/workers/scripts/$scriptName', (r) {
       r.files
@@ -379,9 +393,21 @@ class CloudflareApi {
 
   /// Deploys the Worker [name] with [env] (creating it or replacing it) and turns on its
   /// workers.dev route. Returns its workers.dev host.
-  Future<String> deployWorker(String accountId, String name, String env) async {
+  Future<String> deployWorker(
+    String accountId,
+    String name,
+    String env, {
+    String placement = 'auto',
+    String placementRegion = '',
+  }) async {
     final subdomain = await ensureSubdomain(accountId);
-    await uploadScript(accountId, name, env);
+    await uploadScript(
+      accountId,
+      name,
+      env,
+      placement: placement,
+      placementRegion: placementRegion,
+    );
     await enableWorkersDev(accountId, name);
     return '$name.$subdomain.workers.dev';
   }

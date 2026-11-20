@@ -196,6 +196,7 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
     ConnectionMode.serverless => MiliLocale.t('سرورلس', 'Serverless'),
     ConnectionMode.psiphon => MiliLocale.t('سایفون', 'Psiphon'),
     ConnectionMode.tor => MiliLocale.t('تور', 'Tor'),
+    ConnectionMode.node => MiliLocale.t('نود مستقیم', 'Direct Node'),
   };
 
   String _workerProtoLabel(String p) => switch (p) {
@@ -912,7 +913,57 @@ class _BettboxNodesTabState extends State<_BettboxNodesTab> {
         ),
         const SizedBox(height: 12),
 
-        // 4. Chain Proxy Nodes + Subscription Import
+        // 4. Standalone node client: one chain proxy as the connection itself, without a worker.
+        if (chains.isNotEmpty) ...[
+          BettboxTileCard(
+            title: MiliLocale.t(
+              'اتصال مستقیم به نود (کلاینت)',
+              'Direct Node (Client)',
+            ),
+            icon: Symbols.rocket_launch_rounded,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  MiliLocale.t(
+                    'یک نود را مثل یک کلاینت معمولی بدون ورکر وصل کنید. انتخاب نود، نوع اتصال را روی Node می‌گذارد.',
+                    'Connect one node like a normal client, without a worker. Picking a node switches the connection type to Node.',
+                  ),
+                  style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 10),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 2.1,
+                  ),
+                  itemCount: chains.length,
+                  itemBuilder: (context, i) {
+                    final c = chains[i];
+                    return _NodeCard(
+                      title: c.name,
+                      subtitle: ChainInfo.of(c.link)?.protocol ?? 'Proxy',
+                      badge: 'NODE',
+                      selected: state.mode == ConnectionMode.node &&
+                          state.nodeChain?.id == c.id,
+                      onTap: () {
+                        state.setNode(c);
+                        state.setMode(ConnectionMode.node);
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // 5. Chain Proxy Nodes + Subscription Import
         BettboxTileCard(
           title: MiliLocale.t(
             'نودهای زنجیره‌ای و ساب‌لینک (${chains.length})',
@@ -1133,6 +1184,34 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
   int _total = 0;
   List<MiliScanResult> _liveResults = const [];
 
+  // The live TCP scanner's settings, persisted with the other scanners.
+  int _livePort = 443;
+  int _liveSample = 80;
+  int _liveTimeout = 1400;
+  int _liveConcurrency = 16;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final saved = AppScope.read(context).device.scanners['mili_live'];
+      if (saved == null) return;
+      setState(() {
+        int? number(String key) =>
+            saved[key] is num ? (saved[key] as num).toInt() : null;
+        final port = number('port');
+        final sample = number('sample');
+        final timeout = number('timeout');
+        final concurrency = number('concurrency');
+        if (port != null) _livePort = port;
+        if (sample != null) _liveSample = sample;
+        if (timeout != null) _liveTimeout = timeout;
+        if (concurrency != null) _liveConcurrency = concurrency;
+      });
+    });
+  }
+
   @override
   void dispose() {
     _liveScanner.cancel();
@@ -1176,15 +1255,26 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
   void _startLiveScan(MiliIpPoolData data) {
     _liveScanner.cancel();
     _scanSub?.cancel();
+    AppScope.read(context).write('device.scanners.mili_live', {
+      'port': _livePort,
+      'sample': _liveSample,
+      'timeout': _liveTimeout,
+      'concurrency': _liveConcurrency,
+    });
     final pool = List<MiliIpEntry>.of(data.byCountry(_selectedCountry))..shuffle();
-    final sample = pool.take(80).toList();
+    final sample = (_liveSample <= 0 ? pool : pool.take(_liveSample)).toList();
     setState(() {
       _scanning = true;
       _tested = 0;
       _total = sample.length;
       _liveResults = const [];
     });
-    _scanSub = _liveScanner.scan(entries: sample).listen(
+    _scanSub = _liveScanner.scan(
+      entries: sample,
+      port: _livePort,
+      concurrency: _liveConcurrency,
+      timeout: Duration(milliseconds: _liveTimeout),
+    ).listen(
       (ev) {
         if (!mounted) return;
         setState(() {
@@ -1206,6 +1296,83 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
     _liveScanner.cancel();
     _scanSub?.cancel();
     setState(() => _scanning = false);
+  }
+
+  Future<void> _liveScannerSettings() async {
+    var port = _livePort;
+    var sample = _liveSample;
+    var timeout = _liveTimeout;
+    var concurrency = _liveConcurrency;
+    final result = await showDialog<(int, int, int, int)>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: Text(MiliLocale.t('تنظیمات اسکنر زنده', 'Live scanner settings')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: port,
+                decoration: InputDecoration(labelText: MiliLocale.t('پورت', 'Port')),
+                items: const [443, 2053, 2083, 2087, 2096, 8443]
+                    .map((p) => DropdownMenuItem(value: p, child: Text('$p')))
+                    .toList(),
+                onChanged: (v) => v == null ? null : update(() => port = v),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                initialValue: sample,
+                decoration: InputDecoration(labelText: MiliLocale.t('تعداد نمونه', 'Sample size')),
+                items: const [40, 80, 160, 0]
+                    .map(
+                      (n) => DropdownMenuItem(
+                        value: n,
+                        child: Text(n == 0 ? MiliLocale.t('همه', 'All') : '$n'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) => v == null ? null : update(() => sample = v),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                initialValue: timeout,
+                decoration: InputDecoration(labelText: MiliLocale.t('تایم‌اوت (میلی‌ثانیه)', 'Timeout (ms)')),
+                items: const [800, 1400, 2000, 3000]
+                    .map((n) => DropdownMenuItem(value: n, child: Text('$n')))
+                    .toList(),
+                onChanged: (v) => v == null ? null : update(() => timeout = v),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                initialValue: concurrency,
+                decoration: InputDecoration(labelText: MiliLocale.t('همزمانی', 'Concurrency')),
+                items: const [8, 16, 32, 48]
+                    .map((n) => DropdownMenuItem(value: n, child: Text('$n')))
+                    .toList(),
+                onChanged: (v) => v == null ? null : update(() => concurrency = v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(MiliLocale.t('انصراف', 'Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop((port, sample, timeout, concurrency)),
+              child: Text(MiliLocale.t('ذخیره', 'Save')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _livePort = result.$1;
+      _liveSample = result.$2;
+      _liveTimeout = result.$3;
+      _liveConcurrency = result.$4;
+    });
   }
 
   @override
@@ -1246,6 +1413,11 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
                         children: [
                           Row(
                             children: [
+                              IconButton(
+                                tooltip: MiliLocale.t('تنظیمات اسکنر', 'Scanner settings'),
+                                onPressed: _scanning ? null : _liveScannerSettings,
+                                icon: const Icon(Symbols.tune_rounded, size: 20),
+                              ),
                               Expanded(
                                 child: FilledButton.icon(
                                   onPressed: data == null

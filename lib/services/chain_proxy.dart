@@ -74,7 +74,11 @@ class ChainInfo {
   /// Whether a [mode] connection can carry it: WireGuard and Hysteria2 are UDP, which only WARP
   /// and MASQUE carry (the worker relays TCP only).
   bool canChainOver(ConnectionMode mode) =>
-      !isUdp || mode == ConnectionMode.warp || mode == ConnectionMode.masque;
+      !isUdp ||
+      mode == ConnectionMode.warp ||
+      mode == ConnectionMode.masque ||
+      // A standalone node dials directly, so UDP protocols work too.
+      mode == ConnectionMode.node;
 }
 
 /// A new chain proxy's id.

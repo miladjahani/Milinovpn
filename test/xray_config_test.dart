@@ -78,11 +78,12 @@ PersistentKeepalive = 25
 ''';
 
 void main() {
-  test('only Worker, WARP and MASQUE use connection verification', () {
+  test('Worker, WARP, MASQUE and a direct node use connection verification', () {
     expect(ConnectionMode.values.where((mode) => mode.verifiesConnection), [
       ConnectionMode.worker,
       ConnectionMode.warp,
       ConnectionMode.masque,
+      ConnectionMode.node,
     ]);
   });
 
@@ -279,6 +280,44 @@ void main() {
     );
     expect(rules.last['balancerTag'], 'all-proxies');
     dump('worker_best', c);
+  });
+
+  test('Shadowsocks uses aes-256-gcm, the AEAD cipher the worker speaks', () async {
+    final c = (await builder({}, {
+      'connection': {'workerProtocol': 'shadowsocks_ws'},
+    }).build(ConnectionMode.worker)).config;
+    final proxy = (c['outbounds'] as List).first as Map;
+    expect(proxy['protocol'], 'shadowsocks');
+    expect(proxy['settings']['method'], 'aes-256-gcm');
+    expect(proxy['settings']['password'], uuid);
+    expect(proxy['streamSettings']['network'], 'ws');
+    expect(proxy['streamSettings']['wsSettings']['path'], '/$uuid/ss?ed=2560');
+  });
+
+  test('XHTTP is stream-one and Xray gets the trailing-slash path', () async {
+    final c = (await builder({}, {
+      'connection': {'workerProtocol': 'vless_xhttp'},
+    }).build(ConnectionMode.worker)).config;
+    final proxy = (c['outbounds'] as List).first as Map;
+    final xhttp = proxy['streamSettings']['xhttpSettings'] as Map;
+    expect(xhttp['mode'], 'stream-one');
+    expect(xhttp['path'], '/$uuid/xhttp/');
+  });
+
+  test('Node mode dials one chain proxy directly, without an exit dialer', () async {
+    final c = (await builder(
+      chains(
+        'vless://$uuid@node.example.com:443?security=tls&type=ws&path=%2Fws#node',
+      ),
+    ).build(ConnectionMode.node)).config;
+    final outbounds = (c['outbounds'] as List).cast<Map>();
+    final out = outbounds.first;
+    expect(out['tag'], 'proxy');
+    expect(out['protocol'], 'vless');
+    expect(out['settings']['address'], 'node.example.com');
+    expect(out['streamSettings']['sockopt']['dialerProxy'], isNull);
+    expect(outbounds.any((o) => o['tag'] == 'exit'), isFalse);
+    expect(outbounds.any((o) => o['tag'] == 'exit-dialer'), isFalse);
   });
 
   test('routing strategy defaults to AsIs with matching catch-all rules', () async {

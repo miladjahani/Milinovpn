@@ -98,33 +98,23 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
+            echo "::error::Release signing secrets are missing. Add KEYSTORE_BASE64 (a PKCS12 keystore), KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD under Settings → Secrets and variables → Actions. Signing each release with a different key makes Android refuse the update."
+            exit 1
+          fi
           mkdir -p android/keystore
           cleanup() {
-            rm -f android/key.properties android/keystore/release.jks
+            rm -f android/key.properties android/keystore/release.p12
           }
           trap cleanup EXIT
 
-          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
-            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/keystore/release.jks
-            keytool -list -keystore android/keystore/release.jks \
-              -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
-          else
-            echo "::notice::Generating clean RSA-2048 release signing key (add KEYSTORE_* secrets for a persistent key across updates)."
-            KEYSTORE_PASSWORD="MiliConfigReleaseKey2026"
-            KEY_ALIAS="miliconfig"
-            KEY_PASSWORD="MiliConfigReleaseKey2026"
-            keytool -genkeypair -v -noprompt \
-              -keystore android/keystore/release.jks \
-              -storetype PKCS12 \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -alias "$KEY_ALIAS" \
-              -storepass "$KEYSTORE_PASSWORD" \
-              -keypass "$KEY_PASSWORD" \
-              -dname "CN=MiliConfig, OU=MiliNet, O=MiliConfig, L=Tehran, ST=Tehran, C=IR"
-          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/keystore/release.p12
+          keytool -list -keystore android/keystore/release.p12 \
+            -storetype PKCS12 -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
 
           {
-            printf 'storeFile=../keystore/release.jks\n'
+            printf 'storeFile=../keystore/release.p12\n'
+            printf 'storeType=PKCS12\n'
             printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
             printf 'keyAlias=%s\n' "$KEY_ALIAS"
             printf 'keyPassword=%s\n' "$KEY_PASSWORD"

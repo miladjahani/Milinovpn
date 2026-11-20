@@ -37,10 +37,16 @@ android {
     }
 
     signingConfigs {
-        // android/key.properties + android/keystore/release.jks (both git-ignored).
+        // android/key.properties + android/keystore/release.p12 (both git-ignored). The CI
+        // workflow restores the same keystore from repository secrets on every release, so
+        // updates keep the same Android signature.
         if (keystoreProperties.isNotEmpty()) {
             create("release") {
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                val storePath = keystoreProperties.getProperty("storeFile")
+                storeFile = file(storePath)
+                // New releases use PKCS12; keep older JKS key.properties working.
+                storeType = keystoreProperties.getProperty("storeType")
+                    ?: if (storePath.endsWith(".p12", ignoreCase = true)) "PKCS12" else "JKS"
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")

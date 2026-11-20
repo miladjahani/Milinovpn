@@ -13,6 +13,7 @@ import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
 import 'cf_accounts_page.dart';
 import 'mili_i18n.dart';
+import 'mili_logo.dart';
 
 const _signUpUrl = 'https://dash.cloudflare.com/sign-up';
 
@@ -58,7 +59,6 @@ class _SetupWizardState extends State<SetupWizard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final stepNumber = _step.index + 1;
     final canGoBack = _step != _Step.done && !_installing && (_step != _Step.account || _signingUp);
 
     return PopScope(
@@ -68,9 +68,18 @@ class _SetupWizardState extends State<SetupWizard> {
         if (!didPop) _back();
       },
       child: Scaffold(
-        body: SafeArea(
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF06120B), Color(0xFF040806), Color(0xFF020504)],
+              stops: [0, 0.45, 1],
+            ),
+          ),
+          child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -79,22 +88,41 @@ class _SetupWizardState extends State<SetupWizard> {
                     valueListenable: MiliLocale.code,
                     builder: (context, _, __) => Row(
                       children: [
+                        const MiliShieldLogo(size: 46),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            MiliLocale.t('مرحله $stepNumber از ۳', 'Step $stepNumber of 3'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'MiliConfig VPN',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              Text(
+                                MiliLocale.t('راه‌اندازی امن در ۳ مرحله', 'Secure setup in 3 steps'),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         TextButton(
                           onPressed: MiliLocale.toggle,
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                            shape: const StadiumBorder(),
                           ),
-                          child: Text(MiliLocale.isFa ? 'EN' : 'FA'),
+                          child: Text(
+                            MiliLocale.isFa ? 'EN' : 'فارسی',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
                         if (!widget.addingAccount && _step == _Step.account)
                           TextButton(
@@ -109,9 +137,9 @@ class _SetupWizardState extends State<SetupWizard> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 18),
                   _StepBar(current: _step.index),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                 ],
                 Expanded(
                   child: AnimatedSwitcher(
@@ -161,31 +189,93 @@ class _SetupWizardState extends State<SetupWizard> {
             ),
           ),
         ),
+        ),
       ),
     );
   }
 }
 
-/// Three segments; the ones up to [current] are filled.
+/// Three labelled steps: the current one glows, finished ones are checked.
 class _StepBar extends StatelessWidget {
   final int current;
   const _StepBar({required this.current});
 
+  static const _labels = [
+    ('حساب کلادفلر', 'Cloudflare'),
+    ('توکن API', 'API token'),
+    ('نصب و اتصال', 'Install'),
+  ];
+  static const _icons = [
+    Symbols.cloud_rounded,
+    Symbols.key_rounded,
+    Symbols.rocket_launch_rounded,
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (var i = 0; i < 3; i++) ...[
-          if (i > 0) const SizedBox(width: 6),
-          Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              height: 6,
-              decoration: BoxDecoration(
-                color: i <= current ? scheme.primary : scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(3),
+          if (i > 0)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 17),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  height: 2,
+                  color: i <= current
+                      ? scheme.primary
+                      : scheme.surfaceContainerHighest,
+                ),
               ),
+            ),
+          Expanded(
+            flex: 3,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: i <= current
+                        ? scheme.primary.withValues(alpha: 0.18)
+                        : scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                    border: Border.all(
+                      color: i <= current
+                          ? scheme.primary
+                          : scheme.outlineVariant.withValues(alpha: 0.7),
+                      width: i == current ? 2 : 1,
+                    ),
+                  ),
+                  child: i < current
+                      ? Icon(Symbols.check_rounded, size: 20, color: scheme.primary)
+                      : Icon(
+                          _icons[i],
+                          size: 18,
+                          color: i == current
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  MiliLocale.t(_labels[i].$1, _labels[i].$2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: i == current ? FontWeight.w800 : FontWeight.w500,
+                    color: i == current
+                        ? scheme.primary
+                        : scheme.onSurfaceVariant.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -194,7 +284,7 @@ class _StepBar extends StatelessWidget {
   }
 }
 
-/// Icon, title, body, then buttons pinned to the bottom.
+/// The glowing card with the step's icon, title, body, and buttons pinned below.
 class _StepLayout extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -205,23 +295,72 @@ class _StepLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, size: 40, color: theme.colorScheme.primary),
-                const SizedBox(height: 16),
-                Text(title, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
-                DefaultTextStyle.merge(
-                  style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: scheme.primary.withValues(alpha: 0.18),
                 ),
-              ],
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    scheme.primary.withValues(alpha: 0.10),
+                    scheme.surfaceContainer.withValues(alpha: 0.55),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.primary.withValues(alpha: 0.08),
+                    blurRadius: 32,
+                    spreadRadius: -8,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: scheme.primary.withValues(alpha: 0.16),
+                      border: Border.all(
+                        color: scheme.primary.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Icon(icon, size: 25, color: scheme.primary),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DefaultTextStyle.merge(
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.7,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: children,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -271,7 +410,16 @@ Future<void> _openUrl(BuildContext context, String url) async {
   final messenger = ScaffoldMessenger.of(context);
   if (!await VpnChannel.openUrl(url)) {
     await Clipboard.setData(ClipboardData(text: url));
-    messenger.showSnackBar(const SnackBar(content: Text('Link copied. Open it in your browser.')));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          MiliLocale.t(
+            'لینک کپی شد. آن را در مرورگر باز کنید.',
+            'Link copied. Open it in your browser.',
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -289,47 +437,112 @@ class _AccountStep extends StatelessWidget {
     if (signingUp) {
       return _StepLayout(
         icon: Symbols.person_add_rounded,
-        title: 'Create your Cloudflare account',
+        title: MiliLocale.t('حساب کلادفلر بسازید', 'Create your Cloudflare account'),
         buttons: [
-          TextButton(onPressed: onBack, child: const Text('Back')),
+          TextButton(
+            onPressed: onBack,
+            child: Text(MiliLocale.t('بازگشت', 'Back')),
+          ),
           const SizedBox(width: 12),
           // Takes the rest of the row, so the label stays on one line (and can't overflow).
           Expanded(
-            child: FilledButton(onPressed: onYes, child: const Text("I've verified it")),
+            child: FilledButton(
+              onPressed: onYes,
+              child: Text(MiliLocale.t('ایمیل را تأیید کردم', "I've verified it")),
+            ),
           ),
         ],
         children: [
-          const _Instruction(1, TextSpan(text: 'Sign up on the Cloudflare page that just opened.')),
-          const _Instruction(2, TextSpan(text: 'Open the email Cloudflare sends you and verify your address.')),
-          const _Instruction(3, TextSpan(text: 'Come back here and continue.')),
+          _Instruction(
+            1,
+            TextSpan(
+              text: MiliLocale.t(
+                'در صفحه‌ای که باز شد، در کلادفلر ثبت‌نام کنید.',
+                'Sign up on the Cloudflare page that just opened.',
+              ),
+            ),
+          ),
+          _Instruction(
+            2,
+            TextSpan(
+              text: MiliLocale.t(
+                'ایمیل کلادفلر را باز کنید و آدرس ایمیل خود را تأیید کنید.',
+                'Open the email Cloudflare sends you and verify your address.',
+              ),
+            ),
+          ),
+          _Instruction(
+            3,
+            TextSpan(
+              text: MiliLocale.t(
+                'به اینجا برگردید و ادامه دهید.',
+                'Come back here and continue.',
+              ),
+            ),
+          ),
           const SizedBox(height: 8),
           TextButton.icon(
             onPressed: () => _openUrl(context, _signUpUrl),
             icon: const Icon(Symbols.open_in_new_rounded, size: 18),
-            label: const Text('Open sign-up page again'),
+            label: Text(MiliLocale.t('بازکردن دوباره صفحه ثبت‌نام', 'Open sign-up page again')),
           ),
         ],
       );
     }
     return _StepLayout(
-      icon: Symbols.cloud_rounded,
-      title: 'Welcome to MiliConfig',
+      icon: Symbols.shield_rounded,
+      title: MiliLocale.t('به MiliConfig خوش آمدید', 'Welcome to MiliConfig'),
       buttons: [
         Expanded(
-          child: OutlinedButton(onPressed: onNo, child: const Text('No, sign me up')),
+          child: OutlinedButton(
+            onPressed: onNo,
+            child: Text(MiliLocale.t('نه، ثبت‌نام می‌کنم', 'No, sign me up')),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: FilledButton(onPressed: onYes, child: const Text('Yes')),
+          child: FilledButton(
+            onPressed: onYes,
+            child: Text(MiliLocale.t('بله، دارم', 'Yes')),
+          ),
         ),
       ],
-      children: const [
+      children: [
         Text(
-          "MiliConfig runs your own private proxy server on Cloudflare's free plan. "
-          'Setting it up takes three steps and a couple of minutes.',
+          MiliLocale.t(
+            'MiliConfig یک پروکسی خصوصی روی پلن رایگان کلادفلر برای شما می‌سازد. '
+                'راه‌اندازی فقط سه مرحله و چند دقیقه وقت می‌برد.',
+            'MiliConfig runs your own private proxy server on Cloudflare\'s free plan. '
+                'Setting it up takes three steps and a couple of minutes.',
+          ),
         ),
-        SizedBox(height: 24),
-        Text('Do you have a Cloudflare account with a verified email?'),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Symbols.verified_user_rounded,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  MiliLocale.t(
+                    'آیا حساب کلادفلر با ایمیل تأییدشده دارید؟',
+                    'Do you have a Cloudflare account with a verified email?',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -367,7 +580,14 @@ class _TokenStepState extends State<_TokenStep> {
   }
 
   Future<void> _next() async {
-    if (_token.text.trim().isEmpty) return setState(() => _error = 'Paste your API token first');
+    if (_token.text.trim().isEmpty) {
+      return setState(
+        () => _error = MiliLocale.t(
+          'اول توکن API را جای‌گذاری کنید',
+          'Paste your API token first',
+        ),
+      );
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -385,15 +605,18 @@ class _TokenStepState extends State<_TokenStep> {
   Widget build(BuildContext context) {
     return _StepLayout(
       icon: Symbols.key_rounded,
-      title: 'Create an API token',
+      title: MiliLocale.t('توکن API بسازید', 'Create an API token'),
       buttons: [
-        TextButton(onPressed: _busy ? null : widget.onBack, child: const Text('Back')),
+        TextButton(
+          onPressed: _busy ? null : widget.onBack,
+          child: Text(MiliLocale.t('بازگشت', 'Back')),
+        ),
         const Spacer(),
         FilledButton(
           onPressed: _busy ? null : _next,
           child: _busy
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Next'),
+              : Text(MiliLocale.t('ادامه', 'Next')),
         ),
       ],
       children: [
@@ -401,9 +624,14 @@ class _TokenStepState extends State<_TokenStep> {
           1,
           TextSpan(
             children: [
-              const TextSpan(text: 'Tap '),
-              _bold('Create token'),
-              const TextSpan(text: ' below. The permissions are filled in for you.'),
+              TextSpan(text: MiliLocale.t('روی ', 'Tap ')),
+              _bold(MiliLocale.t('ساخت توکن', 'Create token')),
+              TextSpan(
+                text: MiliLocale.t(
+                  ' پایین بزنید؛ دسترسی‌های لازم از قبل پر شده‌اند.',
+                  ' below. The permissions are filled in for you.',
+                ),
+              ),
             ],
           ),
         ),
@@ -411,8 +639,13 @@ class _TokenStepState extends State<_TokenStep> {
           2,
           TextSpan(
             children: [
-              const TextSpan(text: 'Log in if asked, scroll down and tap '),
-              _bold('Continue to summary'),
+              TextSpan(
+                text: MiliLocale.t(
+                  'اگر خواست وارد شوید، پایین بروید و ',
+                  'Log in if asked, scroll down and tap ',
+                ),
+              ),
+              _bold(MiliLocale.t('ادامه به خلاصه', 'Continue to summary')),
               const TextSpan(text: '.'),
             ],
           ),
@@ -421,18 +654,31 @@ class _TokenStepState extends State<_TokenStep> {
           3,
           TextSpan(
             children: [
-              const TextSpan(text: 'Tap '),
-              _bold('Create Token'),
-              const TextSpan(text: ', then copy the token.'),
+              TextSpan(text: MiliLocale.t('روی ', 'Tap ')),
+              _bold(MiliLocale.t('ساخت توکن', 'Create Token')),
+              TextSpan(
+                text: MiliLocale.t(
+                  ' بزنید و توکن را کپی کنید.',
+                  ', then copy the token.',
+                ),
+              ),
             ],
           ),
         ),
-        const _Instruction(4, TextSpan(text: 'Come back and paste it here.')),
+        _Instruction(
+          4,
+          TextSpan(
+            text: MiliLocale.t(
+              'به اینجا برگردید و آن را جای‌گذاری کنید.',
+              'Come back and paste it here.',
+            ),
+          ),
+        ),
         const SizedBox(height: 4),
         FilledButton.tonalIcon(
           onPressed: () => openTokenPage(context),
           icon: const Icon(Symbols.open_in_new_rounded, size: 18),
-          label: const Text('Create token'),
+          label: Text(MiliLocale.t('ساخت توکن', 'Create token')),
         ),
         const SizedBox(height: 20),
         TextField(
@@ -442,20 +688,25 @@ class _TokenStepState extends State<_TokenStep> {
           autocorrect: false,
           enableSuggestions: false,
           decoration: InputDecoration(
-            labelText: 'Cloudflare API token',
+            labelText: MiliLocale.t('توکن API کلادفلر', 'Cloudflare API token'),
             errorText: _error,
             errorMaxLines: 4,
-            helperText: 'Stored only on this device.',
+            helperText: MiliLocale.t(
+              'فقط روی همین دستگاه ذخیره می‌شود.',
+              'Stored only on this device.',
+            ),
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  tooltip: 'Paste',
+                  tooltip: MiliLocale.t('جای‌گذاری', 'Paste'),
                   onPressed: _busy ? null : _paste,
                   icon: const Icon(Symbols.content_paste_rounded),
                 ),
                 IconButton(
-                  tooltip: _obscure ? 'Show' : 'Hide',
+                  tooltip: _obscure
+                      ? MiliLocale.t('نمایش', 'Show')
+                      : MiliLocale.t('پنهان', 'Hide'),
                   onPressed: () => setState(() => _obscure = !_obscure),
                   icon: Icon(_obscure ? Symbols.visibility_rounded : Symbols.visibility_off_rounded),
                 ),
@@ -475,13 +726,15 @@ class _TokenStepState extends State<_TokenStep> {
 
 /// What the wizard installs, one after another.
 enum _Item {
-  workers('Workers deployment'),
-  pages('Pages deployment'),
-  warp('WARP registration'),
-  masque('MASQUE registration');
+  workers('استقرار Workers', 'Workers deployment'),
+  pages('استقرار Pages', 'Pages deployment'),
+  warp('ثبت WARP', 'WARP registration'),
+  masque('ثبت MASQUE', 'MASQUE registration');
 
-  final String label;
-  const _Item(this.label);
+  final String fa;
+  final String en;
+  const _Item(this.fa, this.en);
+  String get label => MiliLocale.t(fa, en);
 }
 
 enum _Status { waiting, running, done, failed, skipped }
@@ -593,7 +846,9 @@ class _InstallStepState extends State<_InstallStep> {
       row
         ..status = _Status.failed
         ..network = isNetworkError(e)
-        ..message = isNetworkError(e) ? "Can't reach the server" : (e is StateError ? e.message : '$e');
+        ..message = isNetworkError(e)
+            ? MiliLocale.t('اتصال به سرور برقرار نشد', "Can't reach the server")
+            : (e is StateError ? e.message : '$e');
     }
     if (mounted) setState(() {});
   }
@@ -646,7 +901,9 @@ class _InstallStepState extends State<_InstallStep> {
         await Future<void>.delayed(const Duration(seconds: 1));
         if (!mounted) return;
         final status = await VpnChannel.setupTorStatus();
-        if (!status.running) throw StateError(status.error ?? 'Tor stopped');
+        if (!status.running) {
+          throw StateError(status.error ?? MiliLocale.t('تور متوقف شد', 'Tor stopped'));
+        }
         if (status.progress != last) {
           last = status.progress;
           since = DateTime.now();
@@ -654,7 +911,12 @@ class _InstallStepState extends State<_InstallStep> {
         setState(() => _torProgress = status.progress);
         if (status.progress >= 100) break;
         if (DateTime.now().difference(since) > const Duration(minutes: 2)) {
-          throw StateError("Tor couldn't connect with the built-in bridges");
+          throw StateError(
+            MiliLocale.t(
+              'تور با بریج‌های داخلی وصل نشد',
+              "Tor couldn't connect with the built-in bridges",
+            ),
+          );
         }
       }
       setState(() => _torProgress = null);
@@ -739,12 +1001,15 @@ class _InstallStepState extends State<_InstallStep> {
     final List<Widget> buttons;
     if (!_started) {
       buttons = [
-        TextButton(onPressed: widget.onBack, child: const Text('Back')),
+        TextButton(
+          onPressed: widget.onBack,
+          child: Text(MiliLocale.t('بازگشت', 'Back')),
+        ),
         const Spacer(),
         FilledButton.icon(
           onPressed: () => _run(_rows.keys),
           icon: const Icon(Symbols.cloud_upload_rounded),
-          label: const Text('Install'),
+          label: Text(MiliLocale.t('نصب و راه‌اندازی', 'Install')),
         ),
       ];
     } else if (!_busy && failed.isNotEmpty) {
@@ -757,7 +1022,7 @@ class _InstallStepState extends State<_InstallStep> {
               Center(
                 child: TextButton(
                   onPressed: _skip,
-                  child: const Text('Skip for now'),
+                  child: Text(MiliLocale.t('فعلاً رد کن', 'Skip for now')),
                 ),
               ),
               const SizedBox(height: 8),
@@ -767,7 +1032,7 @@ class _InstallStepState extends State<_InstallStep> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _retryWithTor,
-                        child: const Text('Retry with Tor'),
+                        child: Text(MiliLocale.t('تلاش دوباره با تور', 'Retry with Tor')),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -776,7 +1041,7 @@ class _InstallStepState extends State<_InstallStep> {
                   Expanded(
                     child: FilledButton(
                       onPressed: () => _run(failed),
-                      child: const Text('Retry'),
+                      child: Text(MiliLocale.t('تلاش دوباره', 'Retry')),
                     ),
                   ),
                 ],
@@ -790,21 +1055,29 @@ class _InstallStepState extends State<_InstallStep> {
     }
     return _StepLayout(
       icon: Symbols.rocket_launch_rounded,
-      title: widget.addingAccount ? 'Install your VPN worker' : 'Install MiliConfig',
+      title: widget.addingAccount
+          ? MiliLocale.t('نصب ورکر VPN', 'Install your VPN worker')
+          : MiliLocale.t('نصب MiliConfig', 'Install MiliConfig'),
       buttons: buttons,
       children: [
         Text(
           widget.addingAccount
-              ? 'Your proxy will be deployed to Cloudflare as a Worker and a Pages project.'
-              : 'Your proxy will be deployed to Cloudflare as a Worker and a Pages project, '
-                    'then WARP and MASQUE accounts are registered.',
+              ? MiliLocale.t(
+                  'پروکسی شما روی کلادفلر به شکل یک Worker و یک پروژه Pages نصب می‌شود.',
+                  'Your proxy will be deployed to Cloudflare as a Worker and a Pages project.',
+                )
+              : MiliLocale.t(
+                  'پروکسی شما روی کلادفلر به شکل Worker و Pages نصب می‌شود و سپس حساب‌های WARP و MASQUE ثبت می‌شوند.',
+                  'Your proxy will be deployed to Cloudflare as a Worker and a Pages project, '
+                      'then WARP and MASQUE accounts are registered.',
+                ),
         ),
         const SizedBox(height: 16),
         if (accounts.length > 1 && !_started) ...[
           DropdownMenu<CfAccount>(
             initialSelection: _account,
             expandedInsets: EdgeInsets.zero,
-            label: const Text('Cloudflare account'),
+            label: Text(MiliLocale.t('حساب کلادفلر', 'Cloudflare account')),
             dropdownMenuEntries: [for (final a in accounts) DropdownMenuEntry(value: a, label: a.name)],
             onSelected: (a) {
               if (a != null) setState(() => _account = a);
@@ -815,7 +1088,13 @@ class _InstallStepState extends State<_InstallStep> {
         for (final MapEntry(key: item, value: row) in _rows.entries) _rowTile(context, item, row),
         if (_torProgress case final progress?) ...[
           const SizedBox(height: 12),
-          Text('Connecting through Tor… $progress%', style: theme.textTheme.bodyMedium),
+          Text(
+            MiliLocale.t(
+              'اتصال از طریق تور… $progress%',
+              'Connecting through Tor… $progress%',
+            ),
+            style: theme.textTheme.bodyMedium,
+          ),
           const SizedBox(height: 8),
           LinearProgressIndicator(value: progress / 100),
         ],
@@ -826,15 +1105,22 @@ class _InstallStepState extends State<_InstallStep> {
         if (!_busy && failed.any((i) => _rows[i]!.network)) ...[
           const SizedBox(height: 12),
           Text(
-            "Some steps couldn't reach the server. Connect through another VPN or proxy and retry"
-            '${offerTor ? ', retry through Tor' : ''}, or skip them and finish later from Settings.',
+            MiliLocale.t(
+              'برخی مراحل به سرور نرسیدند. با یک VPN یا پروکسی دیگر دوباره تلاش کنید'
+                  '${offerTor ? '، یا با تور تلاش کنید' : ''}، یا فعلاً رد کنید و بعداً از تنظیمات کامل کنید.',
+              "Some steps couldn't reach the server. Connect through another VPN or proxy and retry"
+                  '${offerTor ? ', retry through Tor' : ''}, or skip them and finish later from Settings.',
+            ),
             style: theme.textTheme.bodySmall,
           ),
         ],
         if (!_busy && failed.any((i) => (i == _Item.workers || i == _Item.pages) && !_rows[i]!.network)) ...[
           const SizedBox(height: 12),
           Text(
-            'Workers could not be deployed. Please check your Cloudflare account or use another account.',
+            MiliLocale.t(
+              'نصب Workers انجام نشد. حساب کلادفلر را بررسی کنید یا از حساب دیگری استفاده کنید.',
+              'Workers could not be deployed. Please check your Cloudflare account or use another account.',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
           ),
         ],
@@ -864,12 +1150,20 @@ class _DoneStep extends StatelessWidget {
     final registerSkipped = skipped.any((i) => i == _Item.warp || i == _Item.masque);
     return _StepLayout(
       icon: Symbols.check_circle_rounded,
-      title: skipped.isEmpty ? "You're all set" : 'Almost done',
+      title: skipped.isEmpty
+          ? MiliLocale.t('همه‌چیز آماده است', "You're all set")
+          : MiliLocale.t('تقریباً تمام شد', 'Almost done'),
       buttons: [
         Expanded(
           child: addingAccount
-              ? FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done'))
-              : FilledButton(onPressed: state.finishSetup, child: const Text('Start using MiliConfig')),
+              ? FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(MiliLocale.t('تمام', 'Done')),
+                )
+              : FilledButton(
+                  onPressed: state.finishSetup,
+                  child: Text(MiliLocale.t('شروع استفاده از MiliConfig', 'Start using MiliConfig')),
+                ),
         ),
       ],
       children: [
@@ -882,16 +1176,45 @@ class _DoneStep extends StatelessWidget {
                     ? const Icon(Symbols.check_circle_rounded, color: Colors.green, fill: 1)
                     : Icon(Symbols.do_not_disturb_on_rounded, color: theme.colorScheme.outline),
                 const SizedBox(width: 16),
-                Expanded(child: Text(row.status == _Status.done ? item.label : '${item.label} (skipped)')),
+                Expanded(
+                  child: Text(
+                    row.status == _Status.done
+                        ? item.label
+                        : MiliLocale.t('${item.label} (رد شد)', '${item.label} (skipped)'),
+                  ),
+                ),
               ],
             ),
           ),
         if (skipped.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const Text("These protocols will be available once you finish setting them up:"),
-          if (deploySkipped) const Text('• Worker: add a Cloudflare account in Settings → VLESS → Cloudflare accounts.'),
-          if (registerSkipped) const Text('• WARP / MASQUE: Settings → Warp or Masque → Register.'),
-          if (!addingAccount) const Text('Psiphon, Tor and Serverless work without them.'),
+          Text(
+            MiliLocale.t(
+              'این پروتکل‌ها بعد از تکمیل راه‌اندازی در دسترس قرار می‌گیرند:',
+              'These protocols will be available once you finish setting them up:',
+            ),
+          ),
+          if (deploySkipped)
+            Text(
+              MiliLocale.t(
+                '• ورکر: در تنظیمات → VLESS → حساب‌های کلادفلر یک حساب اضافه کنید.',
+                '• Worker: add a Cloudflare account in Settings → VLESS → Cloudflare accounts.',
+              ),
+            ),
+          if (registerSkipped)
+            Text(
+              MiliLocale.t(
+                '• WARP / MASQUE: تنظیمات → Warp یا Masque → ثبت.',
+                '• WARP / MASQUE: Settings → Warp or Masque → Register.',
+              ),
+            ),
+          if (!addingAccount)
+            Text(
+              MiliLocale.t(
+                'Psiphon، Tor و Serverless بدون آن‌ها هم کار می‌کنند.',
+                'Psiphon, Tor and Serverless work without them.',
+              ),
+            ),
         ],
       ],
     );

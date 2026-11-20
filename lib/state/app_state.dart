@@ -195,11 +195,13 @@ class AppState extends ChangeNotifier {
       ConnectionMode.psiphon,
       ConnectionMode.tor,
       ConnectionMode.serverless,
+      ConnectionMode.node,
     ])
       if (switch (m) {
         ConnectionMode.worker => deployments.isNotEmpty,
         ConnectionMode.warp => profile.warp.account != null,
         ConnectionMode.masque => profile.masque.account != null,
+        ConnectionMode.node => profile.chains.isNotEmpty,
         _ => true,
       })
         m,
@@ -282,6 +284,12 @@ class AppState extends ChangeNotifier {
       XrayConfigBuilder.chainsFor(mode, profile.chains);
   ChainProxy? get exitChain =>
       XrayConfigBuilder.chainFor(mode, device, profile.chains);
+
+  /// The proxy node used by Node mode (a standalone client connection).
+  ChainProxy? get nodeChain => exitChain;
+
+  void setNode(ChainProxy chain) =>
+      write('device.exit.chains.node', chain.id);
 
   void setExitChain(ChainProxy chain) =>
       write('device.exit.chains.${mode.name}', chain.id);
@@ -439,13 +447,18 @@ class AppState extends ChangeNotifier {
     final envChanged =
         jsonEncode(old.proxyIps) != jsonEncode(value.proxyIps) ||
         old.fallbackUrl != value.fallbackUrl;
+    // Placement is part of the script upload's metadata, so a change needs a redeploy too.
+    final scriptChanged =
+        envChanged ||
+        old.placement != value.placement ||
+        old.placementRegion != value.placementRegion;
     _putDeployment(
       s.account,
-      s.deployment.copyWith(vless: value, pending: envChanged ? true : null),
+      s.deployment.copyWith(vless: value, pending: scriptChanged ? true : null),
     );
     _markChangedWhileConnected();
     notifyListeners();
-    if (envChanged) unawaited(redeploy(s.account, s.deployment.type));
+    if (scriptChanged) unawaited(redeploy(s.account, s.deployment.type));
   }
 
   void _setDevice(DeviceSettings value, {bool reconnect = true}) {
@@ -913,7 +926,13 @@ class AppState extends ChangeNotifier {
           e.account.token,
           (api) => type == WorkerType.pages
               ? api.deployPages(e.account.id, d.name, env, create: false)
-              : api.deployWorker(e.account.id, d.name, env),
+              : api.deployWorker(
+                  e.account.id,
+                  d.name,
+                  env,
+                  placement: d.vless.placement,
+                  placementRegion: d.vless.placementRegion,
+                ),
         );
         final now = _find(account.id, type);
         if (now != null) {

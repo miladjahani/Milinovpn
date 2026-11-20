@@ -1,8 +1,35 @@
-## MiliConfig VPN v2.0.0
+## MiliConfig VPN v2.1.0
 
-- **Complete Bettbox UI/UX Overhaul:** Calm opaque Material 3 surfaces, high-contrast typography, floating capsule bottom bar, and smooth modern Android transitions.
-- **Multi-Protocol Worker Support:** Native **VLESS (WS)**, **VLESS (XHTTP)**, **Trojan (WS)**, and **Shadowsocks (WS)** alongside WARP, MASQUE, Serverless, Psiphon, and Tor.
-- **Dedicated Nodes Tab:** Bettbox-style 2-column grid for Cloudflare Workers/Pages, Protocols, Built-in Cores, and Chain Proxies.
-- **Dashboard Fixes:** Restored **Daily Cloudflare Worker Requests Quota (24h)** card and fixed live **Network Speed LineChart** real-time updates.
-- **Dual-Engine Scanner + 696 IP Pool:** Built-in fast live TCP latency scanner + native Go REAL Tunnel Scanner, with 1-tap apply to **both Clean IP and ProxyIP**.
-- **Refined Minimalist App Icon & Bilingual FA/EN Support.**
+### ظاهر و برند جدید
+- **لوگو و آیکون نئونی جدید:** سپر سبز درخشان با حرف M، هاله سبز روی زمینه مشکی؛ همه آیکون‌های لانچر، آیکون مونوکروم، آیکون نوتیفیکیشن و اسپلش اندروید ۱۲+ به‌روز شدند.
+- لوگوی داخل برنامه هم با همان طرح سپر نئونی بازطراحی شد.
+
+### رفع اتصال پروتکل‌ها
+- **Shadowsocks درست وصل می‌شود:** رمز قبلی `none` توسط Xray-core رد می‌شد (`Unsupported cipher`). حالا رمزنگاری واقعی **aes-256-gcm** (EVP_BytesToKey + HKDF-SHA1 و فریم‌بندی AEAD) در ورکر پیاده‌سازی شده و با Xray سازگار است.
+- **XHTTP درست وصل می‌شود:** حالت کلاینت به **stream-one** تغییر کرد، مسیر با اسلش پایانی تنظیم شد و ورکر هم مسیر/کوئری و تکه‌تکه‌شدن هدر را می‌پذیرد. دیگر دانلینک و آپلینک در یک POST گم نمی‌شوند.
+- به‌روزرسانی خودکار ورکرهای قدیمی به نسخه اسکریپت ۳ تا این اصلاحات روی نصب‌های قبلی هم اعمال شود.
+
+### اتصال مستقیم به نود
+- **حالت اتصال Node:** هر نود Chain Proxy را می‌توان مثل یک کلاینت مستقل و بدون ورکر وصل کرد (VLESS، VMess، Trojan، Shadowsocks، SOCKS، HTTP، WireGuard و Hysteria2).
+- انتخاب نود از تب Nodes یا کارت اتصال؛ ترافیک UDP هم در این حالت عبور می‌کند.
+
+### اسکنرها
+- تنظیمات هر اسکنر (تعداد پروب، بازه‌ها، پورت، حالت، CIDRهای سفارشی) ذخیره می‌شود و دفعه بعد همان‌جا ادامه می‌دهید.
+- اسکنر اصلی قبل از شروع، VPN را می‌بندد تا اسکن واقعی بدون خطای «VPN فعال است» اجرا شود.
+- اسکنر زنده تنظیمات پورت، تعداد نمونه، تایم‌اوت و همزمانی گرفت.
+- اسکنر MASQUE روی پورت ۴۴۳ محدود شد و اسکنرهای WARP/MASQUE تنظیمات ثبت حساب را درست بررسی می‌کنند.
+
+### تنظیمات و ریجن
+- کنترل‌های تکراری زبان/تم/پروتکل ورکر از تب Tools حذف و همه در یک صفحه تنظیمات دسته‌بندی‌شده جمع شدند.
+- **انتخاب ریجن سایفون/تور:** شیت جدید با گزینه «سریع‌ترین (خودکار)» و فهرست کامل کشورها با پرچم و جستجو.
+- **Worker Placement:** حالت Auto، Smart Placement و Targeted Region (مثل `gcp:us-east4`) در تنظیمات VLESS؛ با تغییر، ورکر دوباره مستقر می‌شود.
+
+### ویزارد اولیه
+- طراحی مدرن با هاله سبز، لوگوی سپر، کارت شیشه‌ای و نشانگر مرحله؛ متن‌ها به‌صورت پیش‌فرض فارسی و RTL با امکان تغییر به انگلیسی.
+
+### نصب و انتشار
+- **امضای پایدار:** از این نسخه یک keystore ثابت (PKCS12) در GitHub Secrets استفاده می‌شود؛ دیگر هر بیلد کلید تازه نمی‌سازد و هشدار امنیتی/عدم نصب آپدیت برطرف می‌شود.
+- اگر نسخه ۲.۰.۰ را نصب دارید و اندروید اجازه آپدیت نداد، یک‌بار نسخه قبلی را حذف و ۲.۱.۰ را نصب کنید؛ از این پس آپدیت‌ها با همان امضا نصب می‌شوند.
+- نسخه: `2.1.0+6` — تگ: `v2.1.0`
+
+**تست‌شده:** فریم‌بندی AEAD شادوساکس در برابر پیاده‌سازی مستقل Node/Xray (۱۱ بررسی) و پارس هدر VLESS/XHTTP. ساخت APK در این محیط (بدون Flutter SDK) انجام نشده و در GitHub Actions انجام می‌شود.

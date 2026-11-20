@@ -47,6 +47,36 @@ class _CloudflareScannerPageState extends State<CloudflareScannerPage> {
     super.initState();
     _port = _protocol == ScanProtocol.warp ? 2408 : 443;
     unawaited(_loadCidrs());
+    // Scanner settings are per protocol and survive leaving the page.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final saved = AppScope.read(context).device.scanners[_protocol.wireName];
+      if (saved == null) return;
+      setState(() {
+        int? number(String key) =>
+            saved[key] is num ? (saved[key] as num).toInt() : null;
+        final probe = number('probeCount');
+        final output = number('outputCount');
+        final attemptGap = number('attemptInterval');
+        final probeGap = number('probeInterval');
+        final attempts = number('attemptCount');
+        final port = number('port');
+        if (probe != null) _probeCount.text = '$probe';
+        if (output != null) _outputCount.text = '$output';
+        if (attemptGap != null) _attemptInterval.text = '$attemptGap';
+        if (probeGap != null) _probeInterval.text = '$probeGap';
+        if (attempts != null) _attemptCount = attempts;
+        if (port != null) _port = port;
+        if (saved['mode'] case final String v) _mode = v;
+        if (saved['customCidrs'] == true) _customCidrs = true;
+        if (saved['selectedCidrs'] case final List v) {
+          final wanted = v.whereType<String>().toSet();
+          _selectedCidrs = _cidrs.isEmpty
+              ? wanted
+              : wanted.intersection(_cidrs.toSet());
+        }
+      });
+    });
   }
 
   @override
@@ -73,7 +103,8 @@ class _CloudflareScannerPageState extends State<CloudflareScannerPage> {
       if (!mounted) return;
       setState(() {
         _cidrs = values;
-        _selectedCidrs = {};
+        // Keep a restored custom selection when it is still in the bundled list.
+        _selectedCidrs = _selectedCidrs.intersection(values.toSet());
         _loadingCidrs = false;
       });
     } catch (error) {
@@ -205,6 +236,19 @@ class _CloudflareScannerPageState extends State<CloudflareScannerPage> {
       setState(() => _error = 'Select at least one CIDR.');
       return;
     }
+    state.write('device.scanners.${_protocol.wireName}', {
+      'probeCount': probeCount,
+      'outputCount': output,
+      'attemptCount': _attemptCount,
+      'attemptInterval': attemptInterval,
+      'probeInterval': probeInterval,
+      'port': _port,
+      'mode': _mode,
+      'customCidrs': _customCidrs,
+      'selectedCidrs': _selectedCidrs.toList(),
+    });
+    // The native scanner needs the VPN stopped; it waits for the tunnel to close.
+    if (state.isConnected || state.isBusy) await state.disconnect();
     final worker = state.worker;
     if (_protocol == ScanProtocol.vless && worker == null) {
       setState(
@@ -457,7 +501,9 @@ class _CloudflareScannerPageState extends State<CloudflareScannerPage> {
                   _DropdownSetting<int>(
                     label: 'Port',
                     value: _port,
-                    values: _protocol.isWarpLike
+                    values: _protocol.isMasque
+                        ? const [443]
+                        : _protocol == ScanProtocol.warp
                         ? ScannerAssets.warpPorts
                         : XrayConfigBuilder.httpsPorts,
                     enabled: !_running,
