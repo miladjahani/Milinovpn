@@ -35,8 +35,10 @@ void main() {
     // Searching avoids depending on how many lazy list rows fit in the sheet.
     await tester.enterText(find.byType(TextField), 'Germany');
     await tester.pump();
-    expect(find.text('Germany'), findsOneWidget);
-    await tester.tap(find.text('Germany'));
+    // The search field also contains "Germany", so tap the country tile itself.
+    final germany = find.widgetWithText(ListTile, 'Germany');
+    expect(germany, findsOneWidget);
+    await tester.tap(germany);
     await tester.pumpAndSettle();
     expect(picked, 'DE');
   });
