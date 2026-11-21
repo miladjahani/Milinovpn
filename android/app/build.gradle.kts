@@ -1,3 +1,4 @@
+import java.io.File
 import java.net.URI
 import java.security.MessageDigest
 import java.util.Properties
@@ -23,7 +24,7 @@ val downloadMihomo = tasks.register("downloadMihomo") {
     outputs.upToDateWhen { false }
     doLast {
         val target = mihomoAar.get().asFile
-        fun digest(file: java.io.File): String {
+        fun digest(file: File): String {
             val md = MessageDigest.getInstance("SHA-256")
             file.inputStream().use { input ->
                 val buffer = ByteArray(1 shl 16)
@@ -37,7 +38,7 @@ val downloadMihomo = tasks.register("downloadMihomo") {
         }
         if (target.isFile && digest(target) == mihomoSha256) return@doLast
         target.parentFile.mkdirs()
-        val part = java.io.File(target.parentFile, "${target.name}.part")
+        val part = File(target.parentFile, "${target.name}.part")
         val url = "https://github.com/oviron/libmihomo-android/releases/download/v$mihomoVersion/" +
             "libmihomo-android-v$mihomoVersion.aar"
         URI(url).toURL().openStream().use { input ->
