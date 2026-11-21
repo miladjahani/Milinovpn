@@ -44,12 +44,12 @@ Paste the contents of `release.p12.b64` into `KEYSTORE_BASE64`. Never commit `re
 
 ### Release checklist
 
-1. Bump `version` in `pubspec.yaml` (`2.4.0+15`: the number after `+` is the Android `versionCode` and must always increase).
+1. Bump `version` in `pubspec.yaml` (`2.4.1+16`: the number after `+` is the Android `versionCode` and must always increase).
 2. Update `RELEASE_NOTES.md`.
 3. Commit and push `main`.
 4. Tag the matching version and push the tag:
    ```bash
-   git tag v2.4.0 && git push origin v2.4.0
+   git tag v2.4.1 && git push origin v2.4.1
    ```
 5. GitHub Actions (`.github/workflows/release.yml`) builds `xray.aar`, `libpsiphon.so`, fetches Tor and Iran geo rules, minifies `worker/worker.js`, runs `flutter test`, and signs split + universal APKs.
 6. The workflow uploads `SIGNING_CERT.txt` next to the APKs. Record its `SHA-256` fingerprint and compare it on every later release; it must never change.

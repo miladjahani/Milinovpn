@@ -10,6 +10,7 @@ import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
 import 'dns_server_dialog.dart';
 import 'expressive.dart';
+import 'mili_i18n.dart';
 import 'prefs.dart';
 import 'theme.dart';
 
