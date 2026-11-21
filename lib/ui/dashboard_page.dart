@@ -7,6 +7,8 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/settings.dart';
 import '../services/my_ip.dart';
+import '../services/vpn_channel.dart';
+import '../services/xray_config.dart';
 import '../state/app_state.dart';
 import 'bettbox_widgets.dart';
 import 'cf_accounts_page.dart';

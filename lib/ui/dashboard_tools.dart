@@ -13,6 +13,7 @@ import '../models/settings.dart';
 import '../services/local_proxy.dart';
 import '../services/my_ip.dart';
 import '../services/vpn_channel.dart';
+import '../services/xray_config.dart';
 import '../state/app_state.dart';
 import 'bettbox_widgets.dart';
 import 'cf_accounts_page.dart';

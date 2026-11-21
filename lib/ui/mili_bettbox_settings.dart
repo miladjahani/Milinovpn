@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../models/settings.dart';
 import '../models/theme_color.dart';
 import '../services/vpn_channel.dart';
+import '../services/xray_config.dart';
 import '../state/app_state.dart';
 import 'cf_accounts_page.dart';
 import 'chain_proxies_page.dart';
