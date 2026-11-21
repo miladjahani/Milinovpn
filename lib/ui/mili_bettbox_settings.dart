@@ -151,13 +151,7 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
                       builder: (_) => RoutingPage(
                         title: MiliLocale.t('مسیریابی و عبور مستقیم', 'Bypass Rules'),
                         group: 'bypass',
-                        labels: const {
-                          'lan': 'LAN',
-                          'ir': 'Iran',
-                          'cn': 'China',
-                          'ru': 'Russia',
-                          'openai': 'OpenAI',
-                        },
+                        labels: RoutingPage.bypassLabels,
                         domainHint: 'example.ir, geosite:ir',
                       ),
                     ),

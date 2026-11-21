@@ -73,27 +73,36 @@ class _NeonEmblemPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final s = size.shortestSide / 1024.0;
+    // Leave a real launcher-style margin around the emblem instead of letting the ring and
+    // orbit touch the circular/adaptive mask. The script uses the same idea for the assets.
+    final s = size.shortestSide / 1024.0 * 0.84;
+    final dx = (size.width - 1024 * s) / 2;
+    final dy = (size.height - 1024 * s) / 2;
     double w(double design) => math.max(1.0, design * s);
-    final rect = Offset.zero & size;
-    final center = rect.center;
-    final cx = 512 * s;
-    final cy = 496 * s;
+    final contentRect = Rect.fromLTWH(0, 0, 1024 * s, 1024 * s);
+    final center = Offset.zero & size;
 
     // Deep green halo behind the mark.
     canvas.drawCircle(
-      center,
-      size.shortestSide * 0.56,
+      center.center,
+      size.shortestSide * 0.48,
       Paint()
         ..shader = RadialGradient(
           colors: [
-            primary.withValues(alpha: 0.18),
-            const Color(0xFF03140A).withValues(alpha: 0.5),
+            primary.withValues(alpha: 0.16),
+            const Color(0xFF03140A).withValues(alpha: 0.45),
             Colors.transparent,
           ],
           stops: const [0, 0.66, 1],
-        ).createShader(Rect.fromCircle(center: center, radius: size.shortestSide * 0.56)),
+        ).createShader(
+          Rect.fromCircle(center: center.center, radius: size.shortestSide * 0.48),
+        ),
     );
+
+    canvas.save();
+    canvas.translate(dx, dy);
+    final cx = 512 * s;
+    final cy = 512 * s;
 
     // Outer ring: bloom then a crisp neon line.
     final ringRadius = 356 * s;
@@ -119,8 +128,9 @@ class _NeonEmblemPainter extends CustomPainter {
 
     // The orbit's back half sits behind the M; the front half is painted after it.
     _orbit(canvas, s, front: false);
-    _drawM(canvas, s, rect);
+    _drawM(canvas, s, contentRect);
     _orbit(canvas, s, front: true);
+    canvas.restore();
   }
 
   void _drawM(Canvas canvas, double s, Rect rect) {

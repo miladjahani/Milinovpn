@@ -9,7 +9,7 @@ http.Response release(String tag) => http.Response(
   jsonEncode({
     'tag_name': tag,
     'body': 'Fixes',
-    'html_url': 'https://github.com/miladjahani/Milizeroooo/releases/tag/$tag',
+    'html_url': 'https://github.com/miladjahani/Milinovpn/releases/tag/$tag',
     'assets': [
       for (final abi in ['arm64-v8a', 'armeabi-v7a', 'x86_64'])
         {
@@ -32,7 +32,7 @@ void main() {
 
   test('a newer release: its notes, and the APK for the first ABI it has', () async {
     final client = MockClient((req) async {
-      expect(req.url.toString(), 'https://api.github.com/repos/miladjahani/Milizeroooo/releases/latest');
+      expect(req.url.toString(), 'https://api.github.com/repos/miladjahani/Milinovpn/releases/latest');
       return release('v1.1.0');
     });
     final update = await UpdateChecker(client).check(installed: '1.0.0', abis: ['riscv64', 'armeabi-v7a']);

@@ -2,6 +2,7 @@ package com.miliconfig.vpn
 
 import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -16,6 +17,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.provider.Settings
 import androidx.core.content.FileProvider
 import org.json.JSONObject
 import io.flutter.embedding.android.FlutterActivity
@@ -321,6 +323,15 @@ class MainActivity : FlutterActivity() {
                 }
                 result.success(opened)
             }
+            // In-app updates: download into cacheDir/updates (see UpdateInstaller.dart), then
+            // hand the APK to Android's package installer through our FileProvider.
+            "cacheDir" -> result.success(cacheDir.absolutePath)
+            "canInstallApk" -> result.success(canInstallPackages())
+            "openInstallSettings" -> {
+                openInstallSettings()
+                result.success(null)
+            }
+            "installApk" -> installApk(call.argument<String>("path"), result)
             else -> result.notImplemented()
         }
     }
@@ -430,6 +441,64 @@ class MainActivity : FlutterActivity() {
             result.error("SHARE", e.message ?: e.toString(), null)
         }
     }
+
+    // endregion
+
+    // region in-app update
+
+    private fun canInstallPackages(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            packageManager.canRequestPackageInstalls()
+
+    private fun openInstallSettings() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+            Uri.parse("package:$packageName"),
+        )
+        try {
+            startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
+        }
+    }
+
+    private fun installApk(path: String?, result: MethodChannel.Result) {
+        if (path.isNullOrBlank()) {
+            result.error("ARG", "APK path is required", null)
+            return
+        }
+        val file = File(path)
+        if (!file.isFile) {
+            result.error("MISSING", "The downloaded APK is missing", null)
+            return
+        }
+        if (!canInstallPackages()) {
+            openInstallSettings()
+            result.error(
+                "ALLOW_UNKNOWN_SOURCES",
+                "Allow MiliConfig to install apps, then try again",
+                null,
+            )
+            return
+        }
+        try {
+            val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                clipData = ClipData.newRawUri("MiliConfig update", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("INSTALL", e.message ?: e.toString(), null)
+        }
+    }
+
+    // endregion
+
+    // region files
 
     /**
      * Saves [content] as [name] in Downloads and returns where it went, or null if the user

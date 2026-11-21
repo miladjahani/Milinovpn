@@ -30,7 +30,7 @@ class UpdateException implements Exception {
 /// the installed version. Releases are tagged vX.Y.Z and carry one APK per ABI, named
 /// `miliconfig-X.Y.Z-<abi>.apk` (see .github/workflows/release.yml).
 class UpdateChecker {
-  static const repository = 'miladjahani/Milizeroooo';
+  static const repository = 'miladjahani/Milinovpn';
   static const _latest = 'https://api.github.com/repos/$repository/releases/latest';
 
   final http.Client client;
@@ -42,7 +42,13 @@ class UpdateChecker {
     final http.Response res;
     try {
       res = await client
-          .get(Uri.parse(_latest), headers: {'Accept': 'application/vnd.github+json'})
+          .get(
+            Uri.parse(_latest),
+            headers: {
+              'Accept': 'application/vnd.github+json',
+              'User-Agent': 'MiliConfig',
+            },
+          )
           .timeout(const Duration(seconds: 20));
     } catch (e) {
       throw UpdateException("Can't reach GitHub: $e");

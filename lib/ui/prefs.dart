@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../models/settings.dart';
 import '../state/app_state.dart';
 import 'chip_menu.dart';
+import 'mili_i18n.dart';
 import 'theme.dart';
 
 typedef Validator = String? Function(String value);
@@ -649,7 +650,7 @@ class _MultiSelectDialogState extends State<_MultiSelectDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(MiliLocale.t('انصراف', 'Cancel')),
         ),
         FilledButton(
           onPressed: _selected.isEmpty
@@ -657,7 +658,7 @@ class _MultiSelectDialogState extends State<_MultiSelectDialog> {
               : () =>
                     Navigator.of(context)
                         .pop(widget.options.where(_selected.contains).toList()),
-          child: const Text('Save'),
+          child: Text(MiliLocale.t('ذخیره', 'Save')),
         ),
       ],
     );
@@ -872,9 +873,12 @@ class _TextInputDialogState extends State<_TextInputDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(MiliLocale.t('انصراف', 'Cancel')),
         ),
-        FilledButton(onPressed: _save, child: const Text('Save')),
+        FilledButton(
+          onPressed: _save,
+          child: Text(MiliLocale.t('ذخیره', 'Save')),
+        ),
       ],
     );
   }

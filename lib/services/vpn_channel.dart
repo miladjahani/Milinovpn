@@ -161,6 +161,22 @@ class VpnChannel {
   /// Starts the local ECH gateway (networking/), used when Cloudflare can't be reached directly.
   static Future<void> startEchGateway() => _methods.invokeMethod('startEchGateway');
 
+  /// The app's private cache directory, used for the downloaded update APK.
+  static Future<String> cacheDir() async =>
+      await _methods.invokeMethod<String>('cacheDir') ?? '';
+
+  /// Whether Android lets this app start the package installer (unknown sources).
+  static Future<bool> canInstallApk() async =>
+      await _methods.invokeMethod<bool>('canInstallApk') ?? false;
+
+  /// Opens the "install unknown apps" screen for this app.
+  static Future<void> openInstallSettings() =>
+      _methods.invokeMethod('openInstallSettings');
+
+  /// Starts Android's package installer for the APK at [path].
+  static Future<bool> installApk(String path) async =>
+      await _methods.invokeMethod<bool>('installApk', {'path': path}) ?? false;
+
   /// Opens [url] in the browser; false if nothing could handle it.
   static Future<bool> openUrl(String url) async {
     try {

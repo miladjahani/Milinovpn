@@ -28,6 +28,7 @@ import 'mili_logo.dart';
 import 'mili_toolbox_page.dart';
 import 'region_picker.dart';
 import 'theme.dart';
+import 'update_sheet.dart';
 
 const _tabular = TextStyle(fontFeatures: [FontFeature.tabularFigures()]);
 const _activeGreen = Color(0xFF34D399);
@@ -61,6 +62,15 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
   int _tab = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(AppScope.read(context).checkForUpdate(silent: true));
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
@@ -68,7 +78,11 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
       valueListenable: MiliLocale.code,
       builder: (context, _, __) => Scaffold(
         extendBody: true,
+        extendBodyBehindAppBar: true,
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          scrolledUnderElevation: 0,
           titleSpacing: 16,
           title: Row(
             children: [
@@ -90,6 +104,32 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
             ],
           ),
           actions: [
+            if (AppScope.of(context).availableUpdate != null)
+              IconButton(
+                tooltip: MiliLocale.t('بروزرسانی آماده است', 'Update available'),
+                icon: Badge(
+                  backgroundColor: scheme.primary,
+                  child: Icon(Symbols.system_update_rounded, size: 21),
+                ),
+                onPressed: () => showUpdateSheet(
+                  context,
+                  AppScope.of(context).availableUpdate!,
+                ),
+              ),
+            if (_tab == 0)
+              IconButton(
+                tooltip: MiliLocale.t(
+                  'شخصی‌سازی داشبورد',
+                  'Customize dashboard',
+                ),
+                icon: const Icon(Symbols.edit_rounded, size: 20),
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  showDragHandle: true,
+                  isScrollControlled: true,
+                  builder: (_) => const _DashboardCardsSheet(),
+                ),
+              ),
             IconButton(
               tooltip: MiliLocale.t('گزارش‌ها', 'Logs'),
               icon: const Icon(Symbols.terminal_rounded, size: 21),
@@ -107,29 +147,66 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
             const SizedBox(width: 4),
           ],
         ),
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, anim) => FadeTransition(
-            opacity: anim,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.02),
-                end: Offset.zero,
-              ).animate(anim),
-              child: child,
-            ),
-          ),
-          child: KeyedSubtree(
-            key: ValueKey(_tab),
-            child: switch (_tab) {
-              0 => _BettboxDashboardTab(onJumpTab: (i) => setState(() => _tab = i)),
-              1 => const _BettboxNodesTab(),
-              2 => const _MiliScannerTab(),
-              _ => const MiliBettboxSettingsTab(),
-            },
-          ),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final state = AppScope.of(context);
+            final width = constraints.maxWidth > 920
+                ? 920.0
+                : constraints.maxWidth;
+            final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: BentoBackground(
+                    accent: scheme.primary,
+                    connected: state.isConnected,
+                    busy: state.isBusy,
+                    failed:
+                        state.status == VpnStatus.disconnected &&
+                        state.error != null,
+                  ),
+                ),
+                Positioned(
+                  top: topInset,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: SizedBox(
+                      width: width,
+                      height: constraints.maxHeight - topInset,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.02),
+                              end: Offset.zero,
+                            ).animate(anim),
+                            child: child,
+                          ),
+                        ),
+                        child: KeyedSubtree(
+                          key: ValueKey(_tab),
+                          child: switch (_tab) {
+                            0 => _BettboxDashboardTab(
+                              onJumpTab: (i) => setState(() => _tab = i),
+                            ),
+                            1 => const _BettboxNodesTab(),
+                            2 => const _MiliScannerTab(),
+                            _ => const MiliBettboxSettingsTab(),
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
         bottomNavigationBar: BettboxFloatingNavBar(
           selectedIndex: _tab,
@@ -230,10 +307,12 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
         : formatDuration(DateTime.now().difference(state.connectedAt!));
     final myIp = state.myIps?.other ?? state.myIps?.cloudflare;
     final usage = state.usage;
+    final cards = state.device.dashboardCards;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 102),
       children: [
+        const UpdateBanner(),
         if (state.needsReconnect)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -263,7 +342,8 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
           ),
 
         // 1. Bettbox StartButton Hero Tile
-        BettboxTileCard(
+        if (cards.contains('connection'))
+          BettboxTileCard(
           title: MiliLocale.t('وضعیت هسته و اتصال', 'Core & Connection'),
           icon: Symbols.power_settings_new_rounded,
           watermarkIcon: connected ? Symbols.verified_user_rounded : Symbols.shield_rounded,
@@ -417,7 +497,8 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
         const SizedBox(height: 12),
 
         // 2. Live Non-Freezing Network Speed Card
-        BettboxTileCard(
+        if (cards.contains('speed'))
+          BettboxTileCard(
           title: MiliLocale.t('سرعت شبکه', 'Network Speed'),
           icon: Symbols.speed_rounded,
           watermarkIcon: Symbols.speed_rounded,
@@ -462,7 +543,7 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
         ),
 
         // 3. Daily Worker Requests Quota Card (restored!)
-        if (state.worker != null) ...[
+        if (state.worker != null && cards.contains('quota')) ...[
           const SizedBox(height: 12),
           BettboxTileCard(
             title: MiliLocale.t(
@@ -563,7 +644,8 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
         const SizedBox(height: 12),
 
         // 4. 2-Column Row: Network Detection + Traffic Usage
-        Row(
+        if (cards.contains('network'))
+          Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
@@ -647,7 +729,8 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
         const SizedBox(height: 12),
 
         // 5. 2-Column Quick Options
-        Row(
+        if (cards.contains('quick'))
+          Row(
           children: [
             Expanded(
               child: BettboxTileCard(
@@ -725,7 +808,8 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
         const SizedBox(height: 12),
 
         // 6. Bettbox Toolbox Shortcut Card (Speed Test, Unlock, IP Lookup, Ping, DNS)
-        BettboxTileCard(
+        if (cards.contains('toolbox'))
+          BettboxTileCard(
           title: MiliLocale.t('جعبه‌ابزار شبکه (Bettbox Toolbox)', 'Network Toolbox'),
           icon: Symbols.construction_rounded,
           watermarkIcon: Symbols.construction_rounded,
@@ -773,6 +857,97 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Lets the user hide or restore dashboard cards. The order stays the stable Bento order;
+/// the pencil is always available in the dashboard app bar.
+class _DashboardCardsSheet extends StatelessWidget {
+  const _DashboardCardsSheet();
+
+  static const _items = <(String, String, String, IconData)>[
+    ('connection', 'اتصال و هسته', 'Connection', Symbols.power_settings_new_rounded),
+    ('speed', 'سرعت شبکه', 'Network speed', Symbols.speed_rounded),
+    ('quota', 'سهمیه ورکر', 'Worker quota', Symbols.cloud_done_rounded),
+    ('network', 'شبکه و ترافیک', 'Network & traffic', Symbols.language_rounded),
+    ('quick', 'گزینه‌های سریع', 'Quick options', Symbols.tune_rounded),
+    ('toolbox', 'جعبه‌ابزار', 'Toolbox', Symbols.construction_rounded),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: MiliLocale.code,
+      builder: (context, _, __) {
+        final state = AppScope.of(context);
+        final visible = state.device.dashboardCards;
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  MiliLocale.t('کارت‌های داشبورد', 'Dashboard cards'),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  MiliLocale.t(
+                    'کارت‌هایی که نمی‌خواهید را پنهان کنید. هر زمان از همین دکمه مداد برگردانید.',
+                    'Hide cards you do not need. Bring them back any time from this pencil.',
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 10),
+                for (final (id, fa, en, icon) in _items)
+                  SwitchListTile(
+                    secondary: Icon(icon),
+                    title: Text(MiliLocale.t(fa, en)),
+                    value: visible.contains(id),
+                    onChanged: (on) {
+                      final next = [...visible];
+                      if (on) {
+                        if (!next.contains(id)) next.add(id);
+                      } else {
+                        next.remove(id);
+                      }
+                      state.write('device.dashboard.cards', next);
+                    },
+                  ),
+                const Divider(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => state.write(
+                          'device.dashboard.cards',
+                          DeviceSettings.defaultDashboardCards,
+                        ),
+                        icon: const Icon(Symbols.restart_alt_rounded, size: 18),
+                        label: Text(MiliLocale.t('بازنشانی', 'Reset')),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(MiliLocale.t('تمام', 'Done')),
+                      ),
+                    ),
+                  ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

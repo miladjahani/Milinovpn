@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- In-app APK updates: Android still asks the user to allow this app to install apps. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Needed to list apps for the per-app proxy setting -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"

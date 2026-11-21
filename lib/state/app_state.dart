@@ -21,6 +21,7 @@ import '../services/cloudflare_client.dart';
 import '../services/my_ip.dart';
 import '../services/net_errors.dart';
 import '../services/tor_bridges.dart';
+import '../services/update_installer.dart';
 import '../services/updates.dart';
 import '../services/vpn_channel.dart';
 import '../services/warp.dart';
@@ -123,13 +124,24 @@ class AppState extends ChangeNotifier {
     }.toList();
   }
 
-  /// App theme colour and light/dark mode. Separate notifiers so only the theme rebuilds.
+  /// App theme colour, light/dark mode, font and text scale. Separate notifiers so only the
+  /// theme rebuilds when appearance changes.
   final themeColor = ValueNotifier(ThemeColor.neon);
   final themeMode = ValueNotifier(ThemeMode.dark);
+  final fontFamily = ValueNotifier<String>('OpenSans');
+  final fontScale = ValueNotifier<double>(1.0);
 
   VpnStatus status = VpnStatus.disconnected;
   String? error;
   DateTime? connectedAt;
+
+  /// The latest release, when it is newer than this install. The home shell shows a banner;
+  /// Settings can check again or install it without leaving the app.
+  AppUpdate? availableUpdate;
+  bool checkingUpdate = false;
+  bool downloadingUpdate = false;
+  double updateProgress = 0;
+  String? updateError;
 
   /// Settings changed while connected; reconnect to apply them.
   bool needsReconnect = false;
@@ -320,6 +332,14 @@ class AppState extends ChangeNotifier {
 
   void setThemeMode(ThemeMode value) => write('device.theme.mode', value.name);
 
+  void setFontFamily(String value) {
+    if (!const {'OpenSans', 'JetBrainsMono', 'system'}.contains(value)) return;
+    write('device.theme.font', value);
+  }
+
+  void setFontScale(double value) =>
+      write('device.theme.fontScale', value.clamp(0.9, 1.3));
+
   // endregion
 
   // region configs
@@ -418,7 +438,9 @@ class AppState extends ChangeNotifier {
     if (path.startsWith('device.')) {
       _setDevice(
         device.updated(path.substring(7), value),
-        reconnect: !path.startsWith('device.theme.'),
+        reconnect:
+            !path.startsWith('device.theme.') &&
+            !path.startsWith('device.dashboard.'),
       );
     } else if (path.startsWith('vless.')) {
       _setVless(
@@ -480,6 +502,8 @@ class AppState extends ChangeNotifier {
     themeColor.value = ThemeColor.fromName(device.themeColor);
     themeMode.value =
         ThemeMode.values.asNameMap()[device.themeMode] ?? ThemeMode.dark;
+    fontFamily.value = device.fontFamily;
+    fontScale.value = device.fontScale;
   }
 
   /// Defaults everywhere except the private parts and the configured clean IPs and endpoints.
@@ -732,16 +756,80 @@ class AppState extends ChangeNotifier {
 
   /// Checks GitHub for a newer release: through the tunnel when connected (release downloads
   /// may be slow or blocked otherwise). Null when this is the latest.
-  Future<AppUpdate?> checkForUpdate() async {
-    final info = await VpnChannel.appInfo();
+  Future<AppUpdate?> checkForUpdate({bool silent = false}) async {
+    if (checkingUpdate) return availableUpdate;
+    checkingUpdate = true;
+    updateError = null;
+    notifyListeners();
     final client = proxiedClient(isConnected ? LocalProxy.port : null);
     try {
-      return await UpdateChecker(client)
+      final info = await VpnChannel.appInfo();
+      final update = await UpdateChecker(client)
           .check(installed: info.version, abis: info.abis);
+      availableUpdate = update;
+      return update;
     } on UpdateException catch (e) {
-      throw StateError(e.message);
+      updateError = e.message;
+      if (!silent) throw StateError(e.message);
+      return null;
+    } on PlatformException catch (e) {
+      updateError = e.message ?? 'Update check failed';
+      if (!silent) throw StateError(updateError!);
+      return null;
     } finally {
+      checkingUpdate = false;
       client.close();
+      notifyListeners();
+    }
+  }
+
+  /// Downloads the available APK through the tunnel (when connected) and hands it to Android's
+  /// package installer. Throws [StateError] with a user-facing message on failure.
+  Future<void> installUpdate() async {
+    final update = availableUpdate;
+    if (update == null || downloadingUpdate) return;
+    if (update.apkUrl == null || update.apkUrl!.isEmpty) {
+      throw StateError('This release has no APK for this phone.');
+    }
+    downloadingUpdate = true;
+    updateProgress = 0;
+    updateError = null;
+    notifyListeners();
+    final client = proxiedClient(isConnected ? LocalProxy.port : null);
+    try {
+      var lastNotified = -1.0;
+      final file = await UpdateInstaller(client).download(
+        update,
+        onProgress: (fraction, _, __) {
+          updateProgress = fraction;
+          if (fraction - lastNotified >= 0.01 || fraction >= 1) {
+            lastNotified = fraction;
+            notifyListeners();
+          }
+        },
+      );
+      if (!await VpnChannel.canInstallApk()) {
+        await VpnChannel.openInstallSettings();
+        throw StateError(
+          'Allow MiliConfig to install apps, then tap Install again.',
+        );
+      }
+      final started = await VpnChannel.installApk(file.path);
+      if (!started) {
+        throw StateError("Android couldn't open the package installer.");
+      }
+      // The installer took over; don't keep showing the banner if the user returns.
+      availableUpdate = null;
+    } on UpdateException catch (e) {
+      updateError = e.message;
+      throw StateError(e.message);
+    } on PlatformException catch (e) {
+      updateError = e.message ?? "Android couldn't install the update.";
+      throw StateError(updateError!);
+    } finally {
+      downloadingUpdate = false;
+      client.close();
+      notifyListeners();
     }
   }
 

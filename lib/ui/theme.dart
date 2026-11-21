@@ -5,12 +5,12 @@ import '../models/theme_color.dart';
 // MiliConfig v2.0.0 Design System — Bettbox-inspired calm opaque surfaces,
 // high-contrast crisp typography, and modern Android 15/16 page motion.
 
-const kHeroRadius = 24.0;
-const kCardRadius = 18.0;
-const kSmallCardRadius = 14.0;
-const kDialogRadius = 24.0;
-const kMenuRadius = 16.0;
-const kInputRadius = 14.0;
+const kHeroRadius = 28.0;
+const kCardRadius = 24.0;
+const kSmallCardRadius = 16.0;
+const kDialogRadius = 28.0;
+const kMenuRadius = 18.0;
+const kInputRadius = 16.0;
 
 RoundedSuperellipseBorder roundedShape(
   double radius, {
@@ -23,7 +23,11 @@ RoundedSuperellipseBorder roundedShape(
 const kFieldGap = 16.0;
 const kRangeDashGap = 12.0;
 
-ThemeData buildTheme(Brightness brightness, ThemeColor color) {
+ThemeData buildTheme(
+  Brightness brightness,
+  ThemeColor color, {
+  String fontFamily = 'OpenSans',
+}) {
   final isDark = brightness == Brightness.dark;
   final baseScheme = ColorScheme.fromSeed(
     seedColor: color.seed,
@@ -93,8 +97,8 @@ ThemeData buildTheme(Brightness brightness, ThemeColor color) {
   return ThemeData(
     colorScheme: scheme,
     useMaterial3: true,
-    fontFamily: 'OpenSans',
-    scaffoldBackgroundColor: isDark ? color.darkBg : scheme.surface,
+    fontFamily: fontFamily == 'system' ? null : fontFamily,
+    scaffoldBackgroundColor: isDark ? const Color(0xFF050507) : scheme.surface,
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
         TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -119,7 +123,7 @@ ThemeData buildTheme(Brightness brightness, ThemeColor color) {
         kCardRadius,
         side: BorderSide(color: scheme.outlineVariant, width: 0.9),
       ),
-      color: scheme.surfaceContainer,
+      color: scheme.surfaceContainer.withValues(alpha: isDark ? 0.88 : 0.96),
       elevation: 0,
     ),
     dialogTheme: DialogThemeData(
@@ -131,9 +135,11 @@ ThemeData buildTheme(Brightness brightness, ThemeColor color) {
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surfaceContainer,
+      modalBackgroundColor: scheme.surfaceContainer.withValues(alpha: 0.96),
       surfaceTintColor: Colors.transparent,
+      modalBarrierColor: Colors.black.withValues(alpha: 0.56),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
     ),
     popupMenuTheme: PopupMenuThemeData(
@@ -145,13 +151,13 @@ ThemeData buildTheme(Brightness brightness, ThemeColor color) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        shape: roundedShape(14),
+        shape: roundedShape(kInputRadius),
         textStyle: const TextStyle(fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        shape: roundedShape(14),
+        shape: roundedShape(kInputRadius),
         side: BorderSide(color: scheme.outline),
       ),
     ),

@@ -22,6 +22,8 @@
     </filter>
   </defs>
 
+  <!-- 108dp adaptive layer: keep the whole emblem inside the 66dp safe circle. -->
+  <g transform="translate(23.04 23.04) scale(0.64)">
   <circle cx="64" cy="64" r="56" fill="url(#halo)"/>
 
   <!-- Outer neon ring -->
@@ -68,5 +70,6 @@
   <g fill="#E8FFEC">
     <circle cx="29.75" cy="26.25" r="0.9" filter="url(#soft)"/>
     <circle cx="98.25" cy="26.25" r="0.9" filter="url(#soft)"/>
+  </g>
   </g>
 </svg>

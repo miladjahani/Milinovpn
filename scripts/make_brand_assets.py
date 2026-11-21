@@ -26,8 +26,19 @@ MASTER = 1024
 ORBIT_ANGLE = math.radians(-18)
 ORBIT_CENTER = (512.0, 500.0)
 ORBIT_RX, ORBIT_RY = 392.0, 158.0
-RING_CENTER = (512.0, 496.0)
+RING_CENTER = (512.0, 512.0)
 RING_RADIUS = 356.0
+
+# Launcher artwork deliberately leaves a generous margin. Adaptive icons can be masked to a
+# circle or squircle, so the mark must stay well inside the 66dp safe circle of the 108dp
+# layer instead of touching the mask edge.
+LEGACY_MARK_SCALE = 0.78
+ROUND_MARK_SCALE = 0.72
+ADAPTIVE_MARK_SCALE = 0.62
+MONOCHROME_MARK_SCALE = 0.62
+
+# The M itself sits slightly inside the outer ring instead of touching it.
+M_SCALE = 0.88
 
 # The angular M: two tapered blades and a thick central V, with open counters.
 LEFT_BLADE = [(238.0, 205.0), (168.0, 770.0), (334.0, 610.0), (300.0, 300.0)]
@@ -40,27 +51,34 @@ def scaled(points: list[tuple[float, float]], factor: float) -> list[tuple[float
 
 
 def m_mask(size: int) -> Image.Image:
-    """The solid M silhouette: two blades connected by a wide central V."""
-    mask = Image.new("L", (size, size), 0)
-    d = ImageDraw.Draw(mask)
+    """The solid M silhouette: two blades connected by a wide central V.
+
+    The mark is drawn at [M_SCALE] and pasted centred, so it sits inside the ring rather
+    than bleeding into it. This also gives the round and adaptive masks a real margin.
+    """
+    inner = max(1, int(size * M_SCALE))
+    mark = Image.new("L", (inner, inner), 0)
+    d = ImageDraw.Draw(mark)
     for points in (LEFT_BLADE, RIGHT_BLADE):
-        d.polygon(scaled(points, size / 1024), fill=255)
+        d.polygon(scaled(points, inner / 1024), fill=255)
     d.line(
-        scaled(V_POINTS, size / 1024),
+        scaled(V_POINTS, inner / 1024),
         fill=255,
-        width=max(2, int(size * 0.118)),
+        width=max(2, int(inner * 0.118)),
         joint="curve",
     )
     # Sharper peaks and a needle-sharp centre point.
     for x in (238.0, 786.0):
         d.polygon(
-            scaled([(x - 38, 255), (x, 160), (x + 38, 255)], size / 1024),
+            scaled([(x - 38, 255), (x, 160), (x + 38, 255)], inner / 1024),
             fill=255,
         )
     d.polygon(
-        scaled([(470, 675), (512, 810), (554, 675)], size / 1024),
+        scaled([(470, 675), (512, 810), (554, 675)], inner / 1024),
         fill=255,
     )
+    mask = Image.new("L", (size, size), 0)
+    mask.paste(mark, ((size - inner) // 2, (size - inner) // 2))
     return mask
 
 
@@ -185,6 +203,19 @@ def tint(mask: Image.Image, color: tuple[int, int, int], alpha: int = 255) -> Im
 
 def add_m(img: Image.Image, size: int) -> None:
     mask = m_mask(size)
+    # The silhouette is drawn at M_SCALE and centred in m_mask; facets and highlights must
+    # use the same transform or they no longer line up with the blades.
+    mark_span = size * M_SCALE
+    mark_offset = (size - mark_span) / 2
+
+    def m_points(points):
+        return [
+            (
+                mark_offset + x * mark_span / 1024,
+                mark_offset + y * mark_span / 1024,
+            )
+            for x, y in points
+        ]
 
     # Projected shadow gives the mark thickness.
     shadow_mask = Image.new("L", (size, size), 0)
@@ -204,12 +235,12 @@ def add_m(img: Image.Image, size: int) -> None:
     # Folded-metal facets: upper surfaces catch light, lower surfaces fall into shadow.
     facet = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     fd = ImageDraw.Draw(facet)
-    fd.polygon(scaled(LEFT_BLADE, size / 1024), fill=(150, 255, 180, 30))
-    fd.polygon(scaled(RIGHT_BLADE, size / 1024), fill=(0, 8, 4, 54))
+    fd.polygon(m_points(LEFT_BLADE), fill=(150, 255, 180, 30))
+    fd.polygon(m_points(RIGHT_BLADE), fill=(0, 8, 4, 54))
     fd.line(
-        scaled(V_POINTS, size / 1024),
+        m_points(V_POINTS),
         fill=(210, 255, 222, 16),
-        width=max(2, int(size * 0.118)),
+        width=max(2, int(size * 0.118 * M_SCALE)),
         joint="curve",
     )
     facet.putalpha(Image.composite(facet.getchannel("A"), Image.new("L", (size, size), 0), mask))
@@ -227,16 +258,16 @@ def add_m(img: Image.Image, size: int) -> None:
     highlight = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     hd = ImageDraw.Draw(highlight)
     hd.line(
-        scaled(V_POINTS, size / 1024),
+        m_points(V_POINTS),
         fill=(232, 255, 238, 190),
-        width=max(1, int(size * 0.0038)),
+        width=max(1, int(size * 0.0038 * M_SCALE)),
         joint="curve",
     )
     for blade in (LEFT_BLADE, RIGHT_BLADE):
         hd.line(
-            scaled([blade[3], blade[2]], size / 1024),
+            m_points([blade[3], blade[2]]),
             fill=(205, 255, 218, 115),
-            width=max(1, int(size * 0.0030)),
+            width=max(1, int(size * 0.0030 * M_SCALE)),
         )
     highlight = highlight.filter(ImageFilter.GaussianBlur(max(1, size * 0.0008)))
     img.alpha_composite(highlight)
@@ -245,9 +276,11 @@ def add_m(img: Image.Image, size: int) -> None:
     glint = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glint)
     for x, y in ((238, 205), (786, 205)):
-        r = size * 0.010
+        r = size * 0.010 * M_SCALE
+        gx = mark_offset + x * mark_span / 1024
+        gy = mark_offset + y * mark_span / 1024
         gd.ellipse(
-            (x * size / 1024 - r, y * size / 1024 - r, x * size / 1024 + r, y * size / 1024 + r),
+            (gx - r, gy - r, gx + r, gy + r),
             fill=(225, 255, 232, 210),
         )
     glint = glint.filter(ImageFilter.GaussianBlur(size * 0.0016))
@@ -255,12 +288,22 @@ def add_m(img: Image.Image, size: int) -> None:
 
 
 def mark_image(size: int) -> Image.Image:
-    """Transparent canvas with the complete emblem (ring, orbit, M and glow)."""
+    """Transparent canvas with the complete emblem (ring, orbit, M and glow), centred."""
     master = Image.new("RGBA", (MASTER, MASTER), (0, 0, 0, 0))
     add_ring(master)
     add_orbit(master, front=False)
     add_m(master, MASTER)
     add_orbit(master, front=True)
+    # The orbit is asymmetric; centre the visible glow rather than the nominal 512,512 point.
+    bbox = master.getbbox()
+    if bbox is not None:
+        visible = master.crop(bbox)
+        centred = Image.new("RGBA", (MASTER, MASTER), (0, 0, 0, 0))
+        centred.alpha_composite(
+            visible,
+            ((MASTER - visible.width) // 2, (MASTER - visible.height) // 2),
+        )
+        master = centred
     return master.resize((size, size), Image.LANCZOS)
 
 
@@ -299,18 +342,17 @@ def background(size: int, round_icon: bool = False) -> Image.Image:
 
 def legacy_icon(size: int, round_icon: bool = False) -> Image.Image:
     base = background(size, round_icon=round_icon)
-    mark_size = int(size * 0.92)
+    mark_size = int(size * (ROUND_MARK_SCALE if round_icon else LEGACY_MARK_SCALE))
     mark = mark_image(mark_size)
     base.alpha_composite(mark, ((size - mark_size) // 2, (size - mark_size) // 2))
     return base
 
 
 def adaptive_foreground(size: int) -> Image.Image:
-    # Adaptive icons are 108dp; the visible safe zone is the central 66dp. The mark's
-    # outer ring and orbit stay inside that circle.
+    # Adaptive icons are 108dp; the visible safe zone is the central 66dp. Keep the whole
+    # emblem comfortably inside it, with a visible black margin on every mask shape.
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    # The orbit and the blade tips stay inside the 66dp safe circle.
-    mark_size = int(size * 0.78)
+    mark_size = int(size * ADAPTIVE_MARK_SCALE)
     mark = mark_image(mark_size)
     canvas.alpha_composite(mark, ((size - mark_size) // 2, (size - mark_size) // 2))
     return canvas
@@ -332,7 +374,7 @@ def monochrome_icon(size: int) -> Image.Image:
     canvas.alpha_composite(tint(m_mask(MASTER), (255, 255, 255)))
     # The monochrome layer uses the same safe-zone scale as the colour foreground.
     out = Image.new("RGBA", (MASTER, MASTER), (0, 0, 0, 0))
-    mark_size = int(MASTER * 0.78)
+    mark_size = int(MASTER * MONOCHROME_MARK_SCALE)
     mark = canvas.resize((mark_size, mark_size), Image.LANCZOS)
     out.alpha_composite(mark, ((MASTER - mark_size) // 2, (MASTER - mark_size) // 2))
     return out.resize((size, size), Image.LANCZOS)

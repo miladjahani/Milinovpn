@@ -7,6 +7,7 @@ import '../services/cloudflare_api.dart';
 import '../services/net_errors.dart';
 import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
+import 'mili_i18n.dart';
 import 'prefs.dart';
 import 'setup_wizard.dart';
 
@@ -18,28 +19,33 @@ class CfAccountsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cloudflare accounts')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const SetupWizard(addingAccount: true),
-          ),
+    return ValueListenableBuilder<String>(
+      valueListenable: MiliLocale.code,
+      builder: (context, _, __) => Scaffold(
+        appBar: AppBar(
+          title: Text(MiliLocale.t('حساب‌های کلادفلر', 'Cloudflare accounts')),
         ),
-        icon: const Icon(Symbols.add_rounded),
-        label: const Text('Add account'),
-      ),
-      // One settings card of accounts, like the Settings page.
-      body: ListView(
-        padding: const EdgeInsets.only(top: 8, bottom: 96),
-        children: [
-          if (state.cfAccounts.isNotEmpty)
-            SettingsCard(
-              children: [
-                for (final a in state.cfAccounts) _AccountTile(account: a),
-              ],
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const SetupWizard(addingAccount: true),
             ),
-        ],
+          ),
+          icon: const Icon(Symbols.add_rounded),
+          label: Text(MiliLocale.t('افزودن حساب', 'Add account')),
+        ),
+        // One settings card of accounts, like the Settings page.
+        body: ListView(
+          padding: const EdgeInsets.only(top: 8, bottom: 96),
+          children: [
+            if (state.cfAccounts.isNotEmpty)
+              SettingsCard(
+                children: [
+                  for (final a in state.cfAccounts) _AccountTile(account: a),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -68,7 +74,7 @@ class _AccountTileState extends State<_AccountTile> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(MiliLocale.t('انصراف', 'Cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
@@ -85,26 +91,41 @@ class _AccountTileState extends State<_AccountTile> {
     final state = AppScope.read(context);
     final messenger = ScaffoldMessenger.of(context);
     if (!await _confirm(
-      'Remove account?',
-      'Custom domains and workers will be removed from the Cloudflare account ${account.label}, '
-          'and then the account itself will be removed from the app.',
-      'Remove',
+      MiliLocale.t('حساب حذف شود؟', 'Remove account?'),
+      MiliLocale.t(
+        'دامنه‌های سفارشی و workerها از حساب کلادفلر ${account.label} حذف می‌شوند و سپس خود حساب از برنامه حذف می‌شود.',
+        'Custom domains and workers will be removed from the Cloudflare account ${account.label}, '
+            'and then the account itself will be removed from the app.',
+      ),
+      MiliLocale.t('حذف', 'Remove'),
     )) {
       return;
     }
     setState(() => _removing = true);
     try {
       await state.removeCfAccount(account);
-      messenger.showSnackBar(const SnackBar(content: Text('Account removed')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(MiliLocale.t('حساب حذف شد', 'Account removed')),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _removing = false);
-      final why = isNetworkError(e) ? "Can't reach Cloudflare." : (e is StateError ? e.message : '$e');
+      final why = isNetworkError(e)
+          ? MiliLocale.t('کلادفلر در دسترس نیست.', "Can't reach Cloudflare.")
+          : (e is StateError ? e.message : '$e');
       if (await _confirm(
-        "Couldn't clean up Cloudflare",
-        '$why\n\nRemove the account from the app anyway? Its workers and custom domains stay in '
-            'the Cloudflare account; delete them in the Cloudflare dashboard.',
-        'Remove anyway',
+        MiliLocale.t(
+          'پاک‌سازی کلادفلر انجام نشد',
+          "Couldn't clean up Cloudflare",
+        ),
+        MiliLocale.t(
+          '$why\n\nحساب به‌هرحال از برنامه حذف شود؟ workerها و دامنه‌های سفارشی در حساب کلادفلر می‌مانند؛ آن‌ها را از داشبورد کلادفلر حذف کنید.',
+          '$why\n\nRemove the account from the app anyway? Its workers and custom domains stay in '
+              'the Cloudflare account; delete them in the Cloudflare dashboard.',
+        ),
+        MiliLocale.t('حذف به‌هرحال', 'Remove anyway'),
       )) {
         await state.removeCfAccount(account, cleanUp: false);
       }
@@ -134,7 +155,7 @@ class _AccountTileState extends State<_AccountTile> {
       subtitle: outdated.isEmpty
           ? null
           : Text(
-              'Worker update available',
+              MiliLocale.t('بروزرسانی worker موجود است', 'Worker update available'),
               style: TextStyle(color: scheme.primary),
             ),
       trailing: Row(
@@ -156,10 +177,10 @@ class _AccountTileState extends State<_AccountTile> {
                   state.redeploy(account, d.type);
                 }
               },
-              child: const Text('Update'),
+              child: Text(MiliLocale.t('بروزرسانی', 'Update')),
             ),
           IconButton(
-            tooltip: 'Remove account',
+            tooltip: MiliLocale.t('حذف حساب', 'Remove account'),
             icon: Icon(Symbols.delete_outline_rounded, color: scheme.error),
             onPressed: busy ? null : _remove,
           ),
@@ -176,7 +197,14 @@ Future<void> openTokenPage(BuildContext context) async {
   if (!await VpnChannel.openUrl(url)) {
     await Clipboard.setData(ClipboardData(text: url));
     messenger.showSnackBar(
-      const SnackBar(content: Text('Link copied. Open it in your browser.')),
+      SnackBar(
+        content: Text(
+          MiliLocale.t(
+            'لینک کپی شد. آن را در مرورگر باز کنید.',
+            'Link copied. Open it in your browser.',
+          ),
+        ),
+      ),
     );
   }
 }

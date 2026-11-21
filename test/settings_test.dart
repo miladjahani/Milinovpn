@@ -1,5 +1,6 @@
 import 'package:mili_vpn/models/settings.dart';
 import 'package:mili_vpn/services/xray_config.dart';
+import 'package:mili_vpn/ui/routing_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -418,6 +419,32 @@ void main() {
       isNull,
     );
     expect(lan({'enabled': true, 'username': 'me'}).lanAuth, isNull);
+  });
+
+  test('routing page switches only use real preset keys', () {
+    expect(
+      RoutingPage.bypassLabels.keys.toList(),
+      RoutingPresets.bypass.keys.toList(),
+    );
+    expect(
+      RoutingPage.sanctionBypassLabels.keys.toList(),
+      RoutingPresets.sanctionBypass.keys.toList(),
+    );
+    expect(
+      RoutingPage.blockLabels.keys.toList(),
+      RoutingPresets.block.keys.toList(),
+    );
+  });
+
+  test('font and dashboard choices survive a sparse round trip', () {
+    final device = const DeviceSettings()
+        .updated('theme.font', 'JetBrainsMono')
+        .updated('theme.fontScale', 1.25)
+        .updated('dashboard.cards', ['connection', 'toolbox', 'unknown']);
+    final stored = DeviceSettings.fromJson(device.toSparseJson());
+    expect(stored.fontFamily, 'JetBrainsMono');
+    expect(stored.fontScale, 1.25);
+    expect(stored.dashboardCards, ['connection', 'toolbox']);
   });
 
   test('paths read and write nested values', () {

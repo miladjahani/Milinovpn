@@ -30,6 +30,8 @@ bool _bool(Object? v, bool def) => v is bool ? v : def;
 
 int _int(Object? v, int def) => v is num ? v.toInt() : def;
 
+double _double(Object? v, double def) => v is num ? v.toDouble() : def;
+
 List<String> _strList(Object? v, List<String> def) => v is List
     ? v.map((e) => '$e'.trim()).where((e) => e.isNotEmpty).toList()
     : def;
@@ -1177,6 +1179,25 @@ class DeviceSettings {
   final String themeColor;
   final String themeMode;
 
+  /// The app font: `OpenSans`, `JetBrainsMono`, or `system` for the platform default.
+  final String fontFamily;
+
+  /// A user text scale (0.9–1.3), applied on top of the system scale.
+  final double fontScale;
+
+  /// Visible dashboard cards, in the app's Bento order. Hidden cards can be restored from
+  /// the pencil in the dashboard app bar.
+  final List<String> dashboardCards;
+
+  static const defaultDashboardCards = [
+    'connection',
+    'speed',
+    'quota',
+    'network',
+    'quick',
+    'toolbox',
+  ];
+
   /// The selected deployment: `<account id>/<workers or pages>`; empty for the first one.
   final String deployment;
 
@@ -1210,6 +1231,9 @@ class DeviceSettings {
     this.exitRegion = '',
     this.themeColor = 'neon',
     this.themeMode = 'dark',
+    this.fontFamily = 'OpenSans',
+    this.fontScale = 1.0,
+    this.dashboardCards = defaultDashboardCards,
     this.deployment = '',
     this.scanners = const {},
     this.setupDone = false,
@@ -1279,6 +1303,16 @@ class DeviceSettings {
       exitRegion: exitRegions.containsKey(region) ? region : d.exitRegion,
       themeColor: _str(theme['color'], d.themeColor),
       themeMode: _str(theme['mode'], d.themeMode),
+      fontFamily: _choice(theme['font'], const {
+        'OpenSans',
+        'JetBrainsMono',
+        'system',
+      }, d.fontFamily),
+      fontScale: _double(theme['fontScale'], d.fontScale).clamp(0.9, 1.3).toDouble(),
+      dashboardCards: _strList(
+        _map(j['dashboard'])['cards'],
+        d.dashboardCards,
+      ).where(defaultDashboardCards.contains).toList(),
       deployment: _str(j['deployment'], d.deployment),
       scanners: {
         for (final e in _map(j['scanners']).entries)
@@ -1316,7 +1350,13 @@ class DeviceSettings {
       'chains': exitChains,
       'region': exitRegion,
     },
-    'theme': {'color': themeColor, 'mode': themeMode},
+    'theme': {
+      'color': themeColor,
+      'mode': themeMode,
+      'font': fontFamily,
+      'fontScale': fontScale,
+    },
+    'dashboard': {'cards': dashboardCards},
     'deployment': deployment,
     'scanners': scanners,
     'setupDone': setupDone,
