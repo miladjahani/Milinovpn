@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/settings.dart';
+import '../models/theme_color.dart';
 import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
-import 'bettbox_widgets.dart';
 import 'cf_accounts_page.dart';
 import 'chain_proxies_page.dart';
 import 'dns_page.dart';
+import 'expressive.dart';
 import 'fragments_page.dart';
+import 'config_view_page.dart';
+import 'interface_settings_page.dart';
 import 'license_page.dart';
+import 'log_page.dart';
+import 'mili_hub_page.dart';
 import 'mili_i18n.dart';
 import 'mili_toolbox_page.dart';
 import 'noises_page.dart';
@@ -19,290 +24,324 @@ import 'settings_page.dart';
 import 'tor_bridges_page.dart';
 import 'update_sheet.dart';
 
-/// Bettbox-style Tools & Settings Hub:
-/// Searchable settings bar, visual Theme Preview cards (7 Mili themes),
-/// Worker Protocol switcher (VLESS WS / VLESS XHTTP / Trojan WS / Shadowsocks WS),
-/// tinted icon badges, and clean rounded Bettbox cards for every native feature.
+/// The central settings destination.
+///
+/// A calm expressive hero, live palette controls, actual inline quick settings
+/// and a bento directory replace the old toolbox/all-settings segmented header.
+/// Every control here is real; specialist pages remain reachable with one tap
+/// and share the same visual language.
 class MiliBettboxSettingsTab extends StatefulWidget {
-  const MiliBettboxSettingsTab({super.key});
+  final VoidCallback? onOpenScanner;
+
+  const MiliBettboxSettingsTab({super.key, this.onOpenScanner});
 
   @override
   State<MiliBettboxSettingsTab> createState() => _MiliBettboxSettingsTabState();
 }
 
 class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
-  String _search = '';
-  bool _showSettings = false;
+  final _search = TextEditingController();
+  String _query = '';
 
-  bool _matches(String fa, String en, [String extra = '']) {
-    if (_search.isEmpty) return true;
-    final q = _search.toLowerCase();
-    return fa.toLowerCase().contains(q) ||
-        en.toLowerCase().contains(q) ||
-        extra.toLowerCase().contains(q);
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
+
+  List<_SettingsDestination> _destinations(AppState state) => [
+    _SettingsDestination(
+      icon: Symbols.deployed_code_rounded,
+      title: MiliLocale.t('Worker و اتصال', 'Worker & connection'),
+      subtitle: MiliLocale.t(
+        'پروتکل، دامنه، پورت، CDN و مسیر استقرار',
+        'Protocol, host, ports, CDN and deployment',
+      ),
+      keywords: 'worker vless xhttp trojan shadowsocks cdn ech port deployment اتصال ورکر',
+      onTap: (context) => _openAdvanced(context, const SettingsPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.dns_rounded,
+      title: MiliLocale.t('شبکه و DNS', 'Network & DNS'),
+      subtitle: MiliLocale.t(
+        'DoH، DNS محلی، IPv6، MTU و اشتراک LAN',
+        'DoH, local DNS, IPv6, MTU and LAN sharing',
+      ),
+      keywords: 'dns doh doq ipv6 mtu lan network شبکه',
+      onTap: (context) => _push(context, const DnsPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.alt_route_rounded,
+      title: MiliLocale.t('مسیریابی', 'Routing'),
+      subtitle: MiliLocale.t(
+        'عبور مستقیم ایران، مسدودسازی و قوانین دستی',
+        'Iran bypass, ad blocking and manual rules',
+      ),
+      keywords: 'routing bypass iran block ads rules مسیر ایران',
+      onTap: (context) => _push(
+        context,
+        RoutingPage(
+          title: MiliLocale.t('مسیریابی و عبور مستقیم', 'Routing & bypass'),
+          group: 'bypass',
+          labels: RoutingPage.bypassLabels,
+          domainHint: 'example.ir, geosite:ir',
+        ),
+      ),
+    ),
+    _SettingsDestination(
+      icon: Symbols.broken_image_rounded,
+      title: MiliLocale.t('فرگمنت TCP', 'TCP fragments'),
+      subtitle: MiliLocale.t(
+        'تکه‌سازی ClientHello برای عبور از DPI',
+        'Split ClientHello to pass deep packet inspection',
+      ),
+      keywords: 'fragment dpi tls split فرگمنت',
+      onTap: (context) => _push(context, const FragmentsPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.graphic_eq_rounded,
+      title: MiliLocale.t('نویز UDP', 'UDP noise'),
+      subtitle: MiliLocale.t(
+        'مبهم‌سازی بسته‌های WARP و MASQUE',
+        'Obfuscation for WARP and MASQUE traffic',
+      ),
+      keywords: 'udp noise warp masque obfuscation نویز',
+      onTap: (context) => _push(context, const NoisesPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.apps_rounded,
+      title: MiliLocale.t('تفکیک برنامه‌ها', 'Per-app proxy'),
+      subtitle: MiliLocale.t(
+        'انتخاب برنامه‌های عبوری یا مستثنی',
+        'Include or exclude selected Android apps',
+      ),
+      keywords: 'per app proxy split tunnel برنامه',
+      onTap: (context) => _push(context, const PerAppPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.link_rounded,
+      title: MiliLocale.t('زنجیره پروکسی', 'Chain proxies'),
+      subtitle: MiliLocale.t(
+        'ورود از کلیپ‌بورد، QR و فایل WireGuard',
+        'Import from clipboard, QR or WireGuard file',
+      ),
+      keywords: 'chain proxy vless trojan shadowsocks wireguard زنجیره',
+      onTap: (context) => _push(context, const ChainProxiesPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.cloud_rounded,
+      title: MiliLocale.t('حساب‌های کلادفلر', 'Cloudflare accounts'),
+      subtitle: MiliLocale.t(
+        'مدیریت حساب‌ها، ورکرها و استقرار مجدد',
+        'Accounts, Workers and one-tap redeploy',
+      ),
+      keywords: 'cloudflare worker pages account token deployment حساب',
+      onTap: (context) => _push(context, const CfAccountsPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.vpn_key_rounded,
+      title: MiliLocale.t('پل‌های تور', 'Tor bridges'),
+      subtitle: MiliLocale.t(
+        'Snowflake، WebTunnel و پل‌های سفارشی',
+        'Snowflake, WebTunnel and custom bridges',
+      ),
+      keywords: 'tor bridge snowflake webtunnel obfs پل',
+      onTap: (context) => _push(context, const TorBridgesPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.hub_rounded,
+      title: 'Mili Hub',
+      subtitle: MiliLocale.t(
+        'مخزن آی‌پی تمیز، پریست‌ها و همگام‌سازی پنل',
+        'Clean IP pool, presets and panel sync',
+      ),
+      keywords: 'mili hub ip pool presets panel sync clean cloudflare پنل آی پی',
+      onTap: (context) => _push(context, const MiliHubPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.palette_rounded,
+      title: MiliLocale.t('ظاهر و حرکت', 'Appearance & motion'),
+      subtitle: MiliLocale.t(
+        'رنگ پویا، فونت، انیمیشن و ترنزیشن صفحات',
+        'Dynamic colour, type, motion and page transitions',
+      ),
+      keywords: 'theme color font motion animation palette appearance ظاهر تم',
+      onTap: (context) => _push(context, const InterfaceSettingsPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.support_agent_rounded,
+      title: MiliLocale.t('پشتیبانی', 'Support'),
+      subtitle: '@miliconfig · GNU GPL v3.0',
+      keywords: 'support telegram license about community پشتیبانی',
+      onTap: (context) async {
+        if (!await VpnChannel.openUrl('https://t.me/miliconfig') &&
+            context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('https://t.me/miliconfig')),
+          );
+        }
+      },
+    ),
+  ];
+
+  Future<void> _push(BuildContext context, Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+
+  Future<void> _openAdvanced(BuildContext context, Widget page) =>
+      _push(context, page);
 
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final p = state.profile;
+    return ValueListenableBuilder<String>(
+      valueListenable: MiliLocale.code,
+      builder: (context, _, __) {
+        final destinations = _destinations(state);
+        final query = _query.trim().toLowerCase();
+        final filtered = query.isEmpty
+            ? destinations
+            : destinations.where((destination) {
+                final haystack = [
+                  destination.title,
+                  destination.subtitle,
+                  destination.keywords,
+                ].join(' ').toLowerCase();
+                return haystack.contains(query);
+              }).toList();
 
-    return Column(
-      children: [
-        _ToolsHeader(
-          showSettings: _showSettings,
-          onModeChanged: (settings) => setState(() => _showSettings = settings),
-        ),
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: state.motionEnabled.value
-                ? const Duration(milliseconds: 220)
-                : Duration.zero,
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) =>
-                FadeTransition(opacity: animation, child: child),
-            child: _showSettings
-                ? const SettingsPage(key: ValueKey('settings'), embedded: true)
-                : ListView(
-                    key: const ValueKey('tools'),
-                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 106),
-                    children: [
-        _UpdateCard(state: state),
-        const SizedBox(height: 12),
-        // Bettbox-style top search bar
-        TextField(
-          decoration: InputDecoration(
-            isDense: true,
-            prefixIcon: const Icon(Symbols.search_rounded, size: 20),
-            hintText: MiliLocale.t(
-              'جستجو در تنظیمات و ابزارها…',
-              'Search settings & tools…',
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+          children: [
+            const _SettingsHero(),
+            const SizedBox(height: 14),
+            BentoSearchField(
+              controller: _search,
+              value: _query,
+              hint: MiliLocale.t(
+                'جستجوی تنظیمات، ابزارها و صفحات…',
+                'Search settings, tools and pages…',
+              ),
+              onChanged: (value) => setState(() => _query = value),
+              onClear: () {
+                _search.clear();
+                setState(() => _query = '');
+              },
             ),
-            suffixIcon: _search.isEmpty
-                ? null
-                : IconButton(
-                    icon: const Icon(Symbols.close_rounded, size: 18),
-                    onPressed: () => setState(() => _search = ''),
-                  ),
-          ),
-          onChanged: (v) => setState(() => _search = v.trim()),
-        ),
-        const SizedBox(height: 14),
-
-        // Theme, language, worker protocol and everything else live in one place (Settings);
-        // the Advanced row below opens it, so the same controls don't appear twice.
-
-        // 1. Core, Accounts & Routing Section (Bettbox Tools List)
-        BettboxTileCard(
-          title: MiliLocale.t('اکانت‌ها، زنجیره و هسته', 'Accounts, Chains & Core'),
-          icon: Symbols.dns_rounded,
-          contentPadding: const EdgeInsets.only(bottom: 8),
-          child: Column(
-            children: [
-              if (_matches('جعبه‌ابزار تست سرعت پینگ', 'Toolbox Speed Test Unlock Ping DNS'))
-                _BettboxRow(
-                  icon: Symbols.construction_rounded,
-                  title: MiliLocale.t('جعبه‌ابزار شبکه (تست سرعت · بازگشایی · پینگ · DNS)', 'Network Toolbox'),
-                  subtitle: MiliLocale.t(
-                    'تست سرعت، بررسی بازگشایی سرویس‌ها، موقعیت آی‌پی، پینگ و DoH',
-                    'Speed test, Media/AI unlock, IP lookup, TCP ping & DNS query',
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const MiliToolboxPage()),
-                  ),
-                ),
-              if (_matches('کلادفلر ورکر', 'Cloudflare Accounts Worker'))
-                _BettboxRow(
-                  icon: Symbols.cloud_rounded,
-                  title: MiliLocale.t('حساب‌های کلادفلر و ورکرها', 'Cloudflare Accounts'),
-                  subtitle: MiliLocale.t(
-                    '${state.cfAccounts.length} حساب ذخیره شده · مدیریت و استقرار مجدد',
-                    '${state.cfAccounts.length} saved account(s) · deploy & manage',
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const CfAccountsPage()),
-                  ),
-                ),
-              if (_matches('زنجیره پروکسی', 'Chain Proxies'))
-                _BettboxRow(
-                  icon: Symbols.link_rounded,
-                  title: MiliLocale.t('پروکسی‌های زنجیره‌ای', 'Chain Proxies'),
-                  subtitle: MiliLocale.t(
-                    '${p.chains.length} کانفیگ وارد شده (VLESS, Trojan, SS, WG)',
-                    '${p.chains.length} imported config(s)',
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ChainProxiesPage()),
-                  ),
-                ),
-              if (_matches('فرگمنت', 'TCP Fragments'))
-                _BettboxRow(
-                  icon: Symbols.broken_image_rounded,
-                  title: MiliLocale.t('تنظیمات فرگمنت TCP', 'TCP Fragments'),
-                  subtitle: MiliLocale.t(
-                    'تکه‌تکه‌سازی بسته‌ها برای عبور از DPI',
-                    'Split TLS ClientHello to bypass DPI',
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const FragmentsPage()),
-                  ),
-                ),
-              if (_matches('نویز مبهم‌سازی', 'UDP Noises Obfuscation'))
-                _BettboxRow(
-                  icon: Symbols.graphic_eq_rounded,
-                  title: MiliLocale.t('نویز UDP و مبهم‌سازی', 'UDP Noises'),
-                  subtitle: MiliLocale.t(
-                    'تنظیمات نویز برای WARP و MASQUE',
-                    'UDP obfuscation tuning for WARP & MASQUE',
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const NoisesPage()),
-                  ),
-                ),
-              if (_matches('مسیریابی ایران', 'Routing Rules'))
-                _BettboxRow(
-                  icon: Symbols.alt_route_rounded,
-                  title: MiliLocale.t('مسیریابی و قوانین ایران', 'Routing & Rules'),
-                  subtitle: MiliLocale.t(
-                    'عبور مستقیم سایت‌های ایرانی و مسدودسازی تبلیغات',
-                    'Bypass local domains, LAN & ad blocking',
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => RoutingPage(
-                        title: MiliLocale.t('مسیریابی و عبور مستقیم', 'Bypass Rules'),
-                        group: 'bypass',
-                        labels: RoutingPage.bypassLabels,
-                        domainHint: 'example.ir, geosite:ir',
-                      ),
-                    ),
-                  ),
-                ),
-              if (_matches('تفکیک برنامه', 'Per-App Proxy'))
-                _BettboxRow(
-                  icon: Symbols.apps_rounded,
-                  title: MiliLocale.t('تفکیک برنامه‌ها (Per-App)', 'Per-App Proxy'),
-                  subtitle: MiliLocale.t(
-                    'انتخاب برنامه‌های عبوری یا مستثنی از VPN',
-                    'Include or exclude specific Android apps',
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PerAppPage()),
-                  ),
-                ),
-              if (_matches('تور پل', 'Tor Bridges'))
-                _BettboxRow(
-                  icon: Symbols.vpn_key_rounded,
-                  title: MiliLocale.t('پل‌های شبکه تور (Tor)', 'Tor Bridges'),
-                  subtitle: MiliLocale.t(
-                    'مدیریت پل‌های Snowflake و obfs4',
-                    'Manage Snowflake, WebTunnel & custom bridges',
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const TorBridgesPage()),
-                  ),
-                ),
-              if (_matches('DNS سرور', 'DNS Servers'))
-                _BettboxRow(
-                  icon: Symbols.dns_rounded,
-                  title: MiliLocale.t('سرورهای DNS و DoH', 'DNS Servers'),
-                  subtitle: MiliLocale.t(
-                    'انتخاب سرورهای DoH / DoQ / UDP',
-                    'Manage encrypted DoH, DoQ & local DNS',
-                  ),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const DnsPage()),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // 4. Support, version and in-app update are part of this hub; the update check
-        // lives at the top of the tab and the advanced settings are one tap away in the
-        // segmented header, not on a separate Settings page.
-        BettboxTileCard(
-          title: MiliLocale.t('پشتیبانی و برنامه', 'Support & App'),
-          icon: Symbols.support_agent_rounded,
-          contentPadding: const EdgeInsets.only(bottom: 8),
-          child: Column(
-            children: [
-              _BettboxRow(
-                icon: Symbols.system_update_rounded,
-                title: MiliLocale.t('بررسی بروزرسانی', 'Check for updates'),
-                subtitle: MiliLocale.t(
-                  'آخرین نسخه را بگیرید و بدون خروج از برنامه نصب کنید',
-                  'Get the latest release and install it in-app',
-                ),
-                onTap: () async {
-                  try {
-                    final update = await state.checkForUpdate();
-                    if (!context.mounted) return;
-                    if (update == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            MiliLocale.t('شما آخرین نسخه را دارید', 'You are up to date'),
-                          ),
+            if (query.isEmpty) ...[
+              const SizedBox(height: 12),
+              _AppearanceCard(state: state),
+              const SizedBox(height: kBentoGap),
+              _QuickSettingsGrid(state: state),
+              const SizedBox(height: kBentoGap),
+              _ToolStrip(
+                onOpenScanner: widget.onOpenScanner,
+              ),
+              const SizedBox(height: 4),
+              BentoSectionLabel(
+                MiliLocale.t('همه تنظیمات', 'All settings'),
+                icon: Symbols.grid_view_rounded,
+              ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(6, 16, 6, 8),
+                child: Text(
+                  filtered.isEmpty
+                      ? MiliLocale.t('نتیجه‌ای پیدا نشد', 'No matching settings')
+                      : MiliLocale.t(
+                          '${filtered.length} نتیجه',
+                          '${filtered.length} result(s)',
                         ),
-                      );
-                    } else {
-                      await showUpdateSheet(context, update);
-                    }
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('$e')),
-                    );
-                  }
-                },
-              ),
-              _BettboxRow(
-                icon: Symbols.support_agent_rounded,
-                title: MiliLocale.t('پشتیبانی و جامعه MiliConfig', 'MiliConfig Community'),
-                subtitle: '@miliconfig',
-                onTap: () => VpnChannel.openUrl('https://t.me/miliconfig'),
-              ),
-              _BettboxRow(
-                icon: Symbols.copyright_rounded,
-                title: MiliLocale.t('مجوز متن‌باز', 'Open Source License'),
-                subtitle: 'GNU GPL v3.0',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const LicensePageView()),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-            ],
-          ),
-        ),
-                    ],
+            _DestinationGrid(destinations: filtered),
+            const SizedBox(height: 4),
+            BentoSectionLabel(
+              MiliLocale.t('برنامه', 'App'),
+              icon: Symbols.info_rounded,
+            ),
+            _UpdateCard(state: state),
+            const SizedBox(height: kBentoGap),
+            BentoSurface(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Column(
+                children: [
+                  _AppRow(
+                    icon: Symbols.settings_suggest_rounded,
+                    title: MiliLocale.t('تنظیمات کامل و پیشرفته', 'Advanced settings'),
+                    subtitle: MiliLocale.t(
+                      'همه گزینه‌های اتصال در یک صفحه',
+                      'Every connection option in one page',
+                    ),
+                    onTap: () => _push(context, const SettingsPage()),
                   ),
-          ),
-        ),
-      ],
+                  Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.55)),
+                  _AppRow(
+                    icon: Symbols.terminal_rounded,
+                    title: MiliLocale.t('لاگ زنده', 'Live logs'),
+                    subtitle: MiliLocale.t(
+                      'مشاهده، فیلتر، کپی و پاک‌سازی خروجی هسته',
+                      'View, filter, copy and clear core output',
+                    ),
+                    onTap: () => _push(context, const LogPage()),
+                  ),
+                  Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.55)),
+                  _AppRow(
+                    icon: Symbols.data_object_rounded,
+                    title: MiliLocale.t('کانفیگ Xray', 'Xray config'),
+                    subtitle: MiliLocale.t(
+                      'پیش‌نمایش JSON ساخته‌شده برای اتصال',
+                      'Preview the generated connection JSON',
+                    ),
+                    onTap: () => _push(context, const ConfigViewPage()),
+                  ),
+                  Divider(
+                    height: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant
+                        .withValues(alpha: 0.55),
+                  ),
+                  _AppRow(
+                    icon: Symbols.copyright_rounded,
+                    title: MiliLocale.t('مجوز متن‌باز', 'Open source license'),
+                    subtitle: 'GNU GPL v3.0',
+                    onTap: () => _push(context, const LicensePageView()),
+                  ),
+                  Divider(
+                    height: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant
+                        .withValues(alpha: 0.55),
+                  ),
+                  _AppRow(
+                    icon: Symbols.settings_backup_restore_rounded,
+                    title: MiliLocale.t('بازنشانی تنظیمات', 'Reset settings'),
+                    subtitle: MiliLocale.t(
+                      'بازگردانی تنظیمات پروکسی به پیش‌فرض',
+                      'Restore proxy settings to their defaults',
+                    ),
+                    onTap: () => _confirmReset(context, state),
+                    danger: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
-}
 
-class _ToolsHeader extends StatelessWidget {
-  final bool showSettings;
-  final ValueChanged<bool> onModeChanged;
-  const _ToolsHeader({
-    required this.showSettings,
-    required this.onModeChanged,
-  });
-
-  Future<void> _resetSettings(BuildContext context, AppState state) async {
-    final ok = await showDialog<bool>(
+  Future<void> _confirmReset(BuildContext context, AppState state) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(MiliLocale.t('بازنشانی تنظیمات؟', 'Reset settings?')),
         content: Text(
           MiliLocale.t(
-            'تنظیمات پروکسی به حالت پیش‌فرض برمی‌گردند. آی‌پی‌های سالم VLESS، اندپوینت‌های WARP/MASQUE و بریج‌های تور حفظ می‌شوند.',
-            'Proxy settings return to their defaults. VLESS Clean IPs, WARP and MASQUE '
-                'endpoints and Tor custom bridges are preserved.',
+            'تنظیمات پروکسی به پیش‌فرض برمی‌گردند. آی‌پی‌های سالم، اندپوینت‌های WARP/MASQUE و پل‌های تور حفظ می‌شوند.',
+            'Proxy settings return to their defaults. Clean IPs, WARP/MASQUE '
+                'endpoints and Tor bridges are preserved.',
           ),
         ),
         actions: [
@@ -317,35 +356,553 @@ class _ToolsHeader extends StatelessWidget {
         ],
       ),
     );
-    if (ok == true) state.resetSettings();
+    if (confirmed == true) state.resetSettings();
+  }
+}
+
+class _SettingsHero extends StatelessWidget {
+  const _SettingsHero();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final state = AppScope.of(context);
+    final connected = state.isConnected;
+    return BentoSurface(
+      highlight: true,
+      padding: const EdgeInsets.fromLTRB(18, 18, 16, 17),
+      child: Row(
+        children: [
+          const BentoOrb(Symbols.tune_rounded, size: 58),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        MiliLocale.t('مرکز تنظیمات', 'Settings center'),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    BentoTag(
+                      connected
+                          ? MiliLocale.t('متصل', 'Connected')
+                          : MiliLocale.t('آماده', 'Ready'),
+                      icon: Symbols.circle,
+                      filled: connected,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  MiliLocale.t(
+                    'همه‌چیز برای اتصال، ظاهر و کنترل هسته — بدون شلوغی',
+                    'Everything for connection, looks and core control — without the clutter',
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppearanceCard extends StatelessWidget {
+  final AppState state;
+  const _AppearanceCard({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return ValueListenableBuilder<ThemeColor>(
+      valueListenable: state.themeColor,
+      builder: (context, color, _) {
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: state.themeMode,
+          builder: (context, mode, _) {
+            final label = switch (mode) {
+              ThemeMode.system => MiliLocale.t('سیستم', 'System'),
+              ThemeMode.light => MiliLocale.t('روشن', 'Light'),
+              ThemeMode.dark => MiliLocale.t('تیره', 'Dark'),
+            };
+            return BentoSurface(
+              padding: const EdgeInsets.fromLTRB(16, 14, 14, 15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      BentoIcon(
+                        Symbols.palette_rounded,
+                        color: scheme.primary,
+                        size: 20,
+                        box: 38,
+                        filled: true,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              MiliLocale.t('ظاهر زنده', 'Live appearance'),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              '${color.label} · $label',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: MiliLocale.t('استودیوی ظاهر', 'Appearance studio'),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const InterfaceSettingsPage(),
+                          ),
+                        ),
+                        icon: Icon(
+                          Directionality.of(context) == TextDirection.rtl
+                              ? Symbols.arrow_back_rounded
+                              : Symbols.arrow_forward_rounded,
+                          size: 19,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 13),
+                  BentoPalettePicker(
+                    selected: color,
+                    onChanged: state.setThemeColor,
+                  ),
+                  const SizedBox(height: 14),
+                  _ThemeModePills(
+                    mode: mode,
+                    onChanged: state.setThemeMode,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _ThemeModePills extends StatelessWidget {
+  final ThemeMode mode;
+  final ValueChanged<ThemeMode> onChanged;
+  const _ThemeModePills({required this.mode, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final items = [
+      (ThemeMode.system, Symbols.brightness_auto_rounded, MiliLocale.t('سیستم', 'System')),
+      (ThemeMode.light, Symbols.light_mode_rounded, MiliLocale.t('روشن', 'Light')),
+      (ThemeMode.dark, Symbols.dark_mode_rounded, MiliLocale.t('تیره', 'Dark')),
+    ];
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.65)),
+      ),
+      child: Row(
+        children: [
+          for (final (value, icon, label) in items)
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (value != mode) onChanged(value);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  decoration: BoxDecoration(
+                    color: value == mode
+                        ? scheme.primaryContainer
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(
+                      color: value == mode
+                          ? scheme.primary.withValues(alpha: 0.45)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 16,
+                        color: value == mode
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: value == mode
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickSettingsGrid extends StatelessWidget {
+  final AppState state;
+  const _QuickSettingsGrid({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final antiDpiOn = state.variant != ConnectionVariant.normal;
+    final fakeDns = state.readBool('general.enableFakeDns');
+    final ipv6 = state.profile.general.enableIpv6;
+    return Column(
+      children: [
+        BentoSectionLabel(
+          MiliLocale.t('تنظیمات سریع', 'Quick settings'),
+          icon: Symbols.bolt_rounded,
+          trailing: BentoTag(
+            state.device.appMode == AppMode.vpn ? 'VPN' : MiliLocale.t('پروکسی', 'Proxy'),
+            icon: Symbols.shield_rounded,
+          ),
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: BentoToggle(
+                icon: Symbols.security_rounded,
+                title: MiliLocale.t('ضد DPI', 'Anti-DPI'),
+                subtitle: antiDpiOn
+                    ? MiliLocale.t('فعال', 'Active')
+                    : MiliLocale.t('عادی', 'Normal'),
+                value: antiDpiOn,
+                onChanged: state.isBusy
+                    ? null
+                    : (on) {
+                        if (state.mode == ConnectionMode.warp) {
+                          state.setVariant(
+                            on
+                                ? ConnectionVariant.obfuscated
+                                : ConnectionVariant.normal,
+                          );
+                        } else {
+                          state.setVariant(
+                            on
+                                ? ConnectionVariant.fragment
+                                : ConnectionVariant.normal,
+                          );
+                        }
+                      },
+              ),
+            ),
+            const SizedBox(width: kBentoGap),
+            Expanded(
+              child: BentoToggle(
+                icon: Symbols.counter_6_rounded,
+                title: 'IPv6',
+                subtitle: MiliLocale.t('شبکه خروجی', 'Outbound network'),
+                value: ipv6,
+                onChanged: (on) => state.write('general.enableIpv6', on),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: kBentoGap),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: BentoToggle(
+                icon: Symbols.dns_rounded,
+                title: MiliLocale.t('DNS فیک', 'Fake DNS'),
+                subtitle: MiliLocale.t('پاسخ سریع محلی', 'Fast local answers'),
+                value: fakeDns,
+                onChanged: (on) => state.write('general.enableFakeDns', on),
+              ),
+            ),
+            const SizedBox(width: kBentoGap),
+            Expanded(
+              child: BentoToggle(
+                icon: Symbols.vpn_lock_rounded,
+                title: MiliLocale.t('حالت تونل', 'Tunnel mode'),
+                subtitle: state.device.appMode == AppMode.vpn
+                    ? MiliLocale.t('همه برنامه‌ها', 'All apps')
+                    : MiliLocale.t('فقط پروکسی', 'Proxy only'),
+                value: state.device.appMode == AppMode.vpn,
+                onChanged: state.isBusy
+                    ? null
+                    : (on) => state.setAppMode(
+                        on ? AppMode.vpn : AppMode.proxy,
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ToolStrip extends StatelessWidget {
+  final VoidCallback? onOpenScanner;
+  const _ToolStrip({this.onOpenScanner});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        BentoSectionLabel(
+          MiliLocale.t('ابزارهای کاربردی', 'Tools'),
+          icon: Symbols.construction_rounded,
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: BentoSurface(
+                highlight: true,
+                padding: const EdgeInsets.all(14),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MiliToolboxPage()),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    BentoIcon(
+                      Symbols.speed_rounded,
+                      box: 42,
+                      size: 21,
+                      filled: true,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      MiliLocale.t('جعبه‌ابزار شبکه', 'Network toolbox'),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      MiliLocale.t(
+                        'سرعت · پینگ · DNS · آی‌پی',
+                        'Speed · ping · DNS · IP',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: kBentoGap),
+            Expanded(
+              child: BentoSurface(
+                padding: const EdgeInsets.all(14),
+                onTap: onOpenScanner,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    BentoIcon(
+                      Symbols.radar_rounded,
+                      box: 42,
+                      size: 21,
+                      color: scheme.tertiary,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      MiliLocale.t('اسکنر کلادفلر', 'Cloudflare scanner'),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      MiliLocale.t('Clean IP · Proxy IP', 'Clean IP · Proxy IP'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DestinationGrid extends StatelessWidget {
+  final List<_SettingsDestination> destinations;
+  const _DestinationGrid({required this.destinations});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final twoColumns = constraints.maxWidth >= 340;
+        if (!twoColumns) {
+          return Column(
+            children: [
+              for (final destination in destinations) ...[
+                BentoNavTile(
+                  icon: destination.icon,
+                  title: destination.title,
+                  subtitle: destination.subtitle,
+                  onTap: () => destination.onTap(context),
+                ),
+                const SizedBox(height: kBentoGap),
+              ],
+            ],
+          );
+        }
+        final rows = <Widget>[];
+        for (var i = 0; i < destinations.length; i += 2) {
+          final first = destinations[i];
+          final second = i + 1 < destinations.length ? destinations[i + 1] : null;
+          rows.add(
+            IntrinsicHeight(
+              child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: second == null ? 2 : 1,
+                  child: BentoNavTile(
+                    icon: first.icon,
+                    title: first.title,
+                    subtitle: first.subtitle,
+                    onTap: () => first.onTap(context),
+                  ),
+                ),
+                if (second != null) ...[
+                  const SizedBox(width: kBentoGap),
+                  Expanded(
+                    child: BentoNavTile(
+                      icon: second.icon,
+                      title: second.title,
+                      subtitle: second.subtitle,
+                      onTap: () => second.onTap(context),
+                    ),
+                  ),
+                ],
+              ],
+              ),
+            ),
+          );
+          rows.add(const SizedBox(height: kBentoGap));
+        }
+        return Column(children: rows);
+      },
+    );
+  }
+}
+
+class _UpdateCard extends StatefulWidget {
+  final AppState state;
+  const _UpdateCard({required this.state});
+
+  @override
+  State<_UpdateCard> createState() => _UpdateCardState();
+}
+
+class _UpdateCardState extends State<_UpdateCard> {
+  Future<void> _check() async {
+    try {
+      final update = await widget.state.checkForUpdate();
+      if (!mounted) return;
+      if (update == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              MiliLocale.t('شما آخرین نسخه را دارید', 'You are up to date'),
+            ),
+          ),
+        );
+      } else if (mounted) {
+        await showUpdateSheet(context, update);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$error')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final state = AppScope.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+    final update = widget.state.availableUpdate;
+    final downloading = widget.state.downloadingUpdate;
+    final busy = widget.state.checkingUpdate || downloading;
+    return BentoSurface(
+      padding: const EdgeInsets.all(16),
+      accent: scheme.tertiary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: scheme.primary.withValues(alpha: 0.14),
-                  border: Border.all(
-                    color: scheme.primary.withValues(alpha: 0.30),
-                  ),
-                ),
-                child: Icon(
-                  Symbols.tune_rounded,
-                  color: scheme.primary,
-                  size: 22,
-                ),
+              BentoIcon(
+                Symbols.system_update_rounded,
+                color: scheme.tertiary,
+                filled: update != null,
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -353,249 +910,93 @@ class _ToolsHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      MiliLocale.t('ابزارها و تنظیمات', 'Tools & Settings'),
+                      update == null
+                          ? MiliLocale.t('بروزرسانی برنامه', 'App update')
+                          : MiliLocale.t(
+                              'نسخه ${update.version} آماده است',
+                              'Version ${update.version} is ready',
+                            ),
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
-                      MiliLocale.t(
-                        'همه ابزارها، تنظیمات ریز، ظاهر و بروزرسانی در یک‌جا',
-                        'All tools, granular settings, appearance and updates in one place',
-                      ),
-                      maxLines: 1,
+                      update == null
+                          ? MiliLocale.t(
+                              'آخرین نسخه را داخل برنامه بررسی و نصب کنید',
+                              'Check and install the latest release in-app',
+                            )
+                          : MiliLocale.t(
+                              'دانلود و نصب امن با حفظ امضای برنامه',
+                              'Secure in-app download with the same signature',
+                            ),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
+                        fontSize: 10.8,
+                        height: 1.4,
                         color: scheme.onSurfaceVariant,
-                        fontSize: 11.5,
                       ),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: MiliLocale.t('بازنشانی تنظیمات', 'Reset settings'),
-                visualDensity: VisualDensity.compact,
-                onPressed: () => _resetSettings(context, state),
-                icon: const Icon(Symbols.settings_backup_restore_rounded, size: 20),
-              ),
-              IconButton(
-                tooltip: MiliLocale.t('بروزرسانی', 'Update'),
-                visualDensity: VisualDensity.compact,
-                onPressed: () async {
-                  if (state.availableUpdate != null) {
-                    await showUpdateSheet(context, state.availableUpdate!);
-                    return;
-                  }
-                  try {
-                    final update = await state.checkForUpdate();
-                    if (!context.mounted) return;
-                    if (update == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            MiliLocale.t('شما آخرین نسخه را دارید', 'You are up to date'),
-                          ),
-                        ),
-                      );
-                    } else {
-                      await showUpdateSheet(context, update);
-                    }
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('$e')),
-                    );
-                  }
-                },
-                icon: Badge(
-                  isLabelVisible: state.availableUpdate != null,
-                  child: const Icon(Symbols.system_update_rounded, size: 21),
-                ),
-              ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            height: 42,
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh.withValues(alpha: 0.58),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: scheme.outlineVariant),
-            ),
-            child: Row(
-              children: [
-                _ToolsModePill(
-                  icon: Symbols.grid_view_rounded,
-                  label: MiliLocale.t('جعبه‌ابزار', 'Toolbox'),
-                  selected: !showSettings,
-                  onTap: () => onModeChanged(false),
-                ),
-                _ToolsModePill(
-                  icon: Symbols.tune_rounded,
-                  label: MiliLocale.t('تنظیمات کامل', 'All settings'),
-                  selected: showSettings,
-                  onTap: () => onModeChanged(true),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToolsModePill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _ToolsModePill({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          decoration: BoxDecoration(
-            color: selected ? scheme.primaryContainer : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? scheme.primary : Colors.transparent,
-              width: 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 17,
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _UpdateCard extends StatelessWidget {
-  final AppState state;
-  const _UpdateCard({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final update = state.availableUpdate;
-    final downloading = state.downloadingUpdate;
-    return BettboxTileCard(
-      title: MiliLocale.t('بروزرسانی برنامه', 'App update'),
-      icon: Symbols.system_update_rounded,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            update == null
-                ? MiliLocale.t(
-                    'آخرین نسخه را بررسی کنید؛ بروزرسانی داخل برنامه دانلود و نصب می‌شود.',
-                    'Check for the latest release; it downloads and installs inside the app.',
-                  )
-                : MiliLocale.t(
-                    'نسخه ${update.version} آماده است. با یک لمس نصب کنید.',
-                    'Version ${update.version} is ready. Install it with one tap.',
-                  ),
-            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12, height: 1.45),
           ),
           if (downloading) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
-                value: state.updateProgress > 0 ? state.updateProgress : null,
+                value: widget.state.updateProgress > 0
+                    ? widget.state.updateProgress
+                    : null,
                 minHeight: 5,
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 13),
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: state.checkingUpdate || downloading
-                      ? null
-                      : () async {
-                          try {
-                            await state.checkForUpdate();
-                            if (!context.mounted) return;
-                            final found = state.availableUpdate;
-                            if (found == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    MiliLocale.t(
-                                      'شما آخرین نسخه را دارید',
-                                      'You are up to date',
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('$e')),
-                            );
-                          }
-                        },
-                  icon: state.checkingUpdate
-                      ? const SizedBox(
-                          width: 15,
-                          height: 15,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Symbols.refresh_rounded, size: 17),
-                  label: Text(MiliLocale.t('بررسی', 'Check')),
+                child: BentoTag(
+                  update != null
+                      ? MiliLocale.t('بروزرسانی موجود', 'Update available')
+                      : MiliLocale.t('آخرین نسخه', 'Latest release'),
+                  icon: update != null
+                      ? Symbols.new_releases_rounded
+                      : Symbols.verified_rounded,
+                  color: update != null ? scheme.primary : scheme.tertiary,
                 ),
               ),
-              if (update != null) ...[
-                const SizedBox(width: 9),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: downloading
-                        ? null
-                        : () => showUpdateSheet(context, update),
-                    icon: const Icon(Symbols.download_rounded, size: 17),
-                    label: Text(MiliLocale.t('نصب', 'Install')),
-                  ),
+              const Spacer(),
+              if (update != null)
+                FilledButton.tonalIcon(
+                  onPressed: busy
+                      ? null
+                      : () => showUpdateSheet(context, update),
+                  icon: widget.state.checkingUpdate
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Symbols.download_rounded, size: 16),
+                  label: Text(MiliLocale.t('نصب', 'Install')),
+                )
+              else
+                FilledButton.tonalIcon(
+                  onPressed: busy ? null : _check,
+                  icon: widget.state.checkingUpdate
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Symbols.refresh_rounded, size: 16),
+                  label: Text(MiliLocale.t('بررسی', 'Check')),
                 ),
-              ],
             ],
           ),
         ],
@@ -604,50 +1005,86 @@ class _UpdateCard extends StatelessWidget {
   }
 }
 
-class _BettboxRow extends StatelessWidget {
+class _AppRow extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final bool danger;
 
-  const _BettboxRow({
+  const _AppRow({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.danger = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(11),
-          color: scheme.primary.withValues(alpha: 0.13),
-        ),
-        child: Icon(icon, size: 19, color: scheme.primary),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-      ),
-      subtitle: Text(
-        subtitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
-      ),
-      trailing: Icon(
-        Symbols.chevron_right_rounded,
-        size: 20,
-        color: scheme.onSurfaceVariant,
-      ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
       onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 2),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 21,
+              color: danger ? scheme.error : scheme.primary,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                      color: danger ? scheme.error : scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Directionality.of(context) == TextDirection.rtl
+                  ? Symbols.chevron_left_rounded
+                  : Symbols.chevron_right_rounded,
+              size: 19,
+              color: scheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
     );
   }
+}
+
+class _SettingsDestination {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String keywords;
+  final Future<void> Function(BuildContext context) onTap;
+
+  const _SettingsDestination({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.keywords,
+    required this.onTap,
+  });
 }

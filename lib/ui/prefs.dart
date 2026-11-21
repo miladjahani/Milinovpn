@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../models/settings.dart';
 import '../state/app_state.dart';
 import 'chip_menu.dart';
+import 'expressive.dart';
 import 'mili_i18n.dart';
 import 'theme.dart';
 
@@ -294,20 +295,38 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 20, 20, 8),
+      padding: const EdgeInsets.fromLTRB(20, 22, 18, 8),
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 15, color: theme.colorScheme.primary),
-            const SizedBox(width: 7),
+            Container(
+              width: 27,
+              height: 27,
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.11),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                  color: scheme.primary.withValues(alpha: 0.16),
+                ),
+              ),
+              child: Icon(
+                icon,
+                size: 15,
+                color: scheme.primary,
+                fill: 1,
+              ),
+            ),
+            const SizedBox(width: 9),
           ],
           Flexible(
             child: Text(
               title,
               style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w700,
+                color: scheme.onSurface,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.15,
               ),
             ),
           ),
@@ -324,27 +343,20 @@ class SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      shape: roundedShape(
-        kCardRadius,
-        side: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: 0.75),
-          width: 0.75,
-        ),
-      ),
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: BentoSurface(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
         child: ListTileTheme.merge(
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 10,
+            horizontal: 9,
+            vertical: 9,
           ),
           minTileHeight: 0,
-          minVerticalPadding: 10,
+          minVerticalPadding: 9,
+          iconColor: scheme.primary,
           child: Column(
             children: [
               for (final (index, child) in children.indexed) ...[
@@ -352,23 +364,50 @@ class SettingsCard extends StatelessWidget {
                 if (index < children.length - 1)
                   Divider(
                     height: 1,
-                    thickness: 0.75,
-                    color: Theme.of(context).colorScheme.outlineVariant
-                        .withValues(alpha: 0.75),
-                    indent: 16,
-                    endIndent: 16,
+                    thickness: 0.7,
+                    color: scheme.outlineVariant.withValues(alpha: 0.58),
+                    indent: 18,
+                    endIndent: 18,
                   ),
               ],
             ],
           ),
-          titleTextStyle: Theme.of(context).textTheme.titleMedium,
+          titleTextStyle: theme.textTheme.titleMedium?.copyWith(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.1,
+          ),
+          subtitleTextStyle: theme.textTheme.bodySmall?.copyWith(
+            fontSize: 10.5,
+            height: 1.45,
+            color: scheme.onSurfaceVariant,
+          ),
         ),
       ),
     );
   }
 }
 
-Widget? _leading(IconData? icon) => icon == null ? null : Icon(icon);
+Widget? _leading(IconData? icon) {
+  if (icon == null) return null;
+  return Builder(
+    builder: (context) {
+      final scheme = Theme.of(context).colorScheme;
+      return Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: scheme.primary.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(
+            color: scheme.primary.withValues(alpha: 0.13),
+          ),
+        ),
+        child: Icon(icon, size: 19, color: scheme.primary),
+      );
+    },
+  );
+}
 
 class SwitchPref extends StatelessWidget {
   final String path;

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
+import 'expressive.dart';
+import 'mili_i18n.dart';
+
 /// The app's GPL-3.0 license, plus the third-party licenses of bundled packages.
 class LicensePageView extends StatelessWidget {
   const LicensePageView({super.key});
@@ -8,12 +11,16 @@ class LicensePageView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('License'),
+      appBar: ExpressiveSubpageHeader(
+        title: MiliLocale.t('مجوز متن‌باز', 'Open source license'),
+        subtitle: 'GNU GPL v3.0',
         actions: [
           TextButton(
-            onPressed: () => showLicensePage(context: context, applicationName: 'MiliConfig'),
-            child: const Text('Third-party'),
+            onPressed: () => showLicensePage(
+              context: context,
+              applicationName: 'MiliConfig',
+            ),
+            child: Text(MiliLocale.t('کتابخانه‌ها', 'Third-party')),
           ),
         ],
       ),

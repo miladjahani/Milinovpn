@@ -1185,9 +1185,12 @@ class DeviceSettings {
   /// A user text scale (0.9–1.3), applied on top of the system scale.
   final double fontScale;
 
-  /// Visible dashboard cards, in the app's Bento order. Hidden cards can be restored from
-  /// the pencil in the dashboard app bar.
+  /// Visible dashboard cards, in the user's Bento order. Hidden cards can be restored from
+  /// the dashboard's edit mode.
   final List<String> dashboardCards;
+
+  /// Bento footprint for each dashboard card: `1x1`, `2x1` or `2x2`.
+  final Map<String, String> dashboardSizes;
 
   /// App-wide motion switch. When off, route/tab transitions and implicit animations are reduced.
   final bool motionEnabled;
@@ -1206,6 +1209,17 @@ class DeviceSettings {
     'quick',
     'toolbox',
   ];
+
+  static const defaultDashboardSizes = {
+    'connection': '2x2',
+    'speed': '1x1',
+    'quota': '1x1',
+    'network': '1x1',
+    'quick': '1x1',
+    'toolbox': '2x1',
+  };
+
+  static const dashboardSizeChoices = {'1x1', '2x1', '2x2'};
 
   /// The selected deployment: `<account id>/<workers or pages>`; empty for the first one.
   final String deployment;
@@ -1243,6 +1257,7 @@ class DeviceSettings {
     this.fontFamily = 'OpenSans',
     this.fontScale = 1.0,
     this.dashboardCards = defaultDashboardCards,
+    this.dashboardSizes = defaultDashboardSizes,
     this.motionEnabled = true,
     this.pageTransition = 'fade',
     this.meshBackground = true,
@@ -1259,6 +1274,8 @@ class DeviceSettings {
     final exit = _map(j['exit']);
     final theme = _map(j['theme']);
     final ui = _map(j['ui']);
+    final dashboard = _map(j['dashboard']);
+    final dashboardSizes = _map(dashboard['sizes']);
     final region = _str(exit['region'], d.exitRegion);
     final bridge = _str(connection['torBridge'], d.torBridge);
     // Older connection types that had a separate Fragment or WARP Pro mode.
@@ -1323,9 +1340,16 @@ class DeviceSettings {
       }, d.fontFamily),
       fontScale: _double(theme['fontScale'], d.fontScale).clamp(0.9, 1.3).toDouble(),
       dashboardCards: _strList(
-        _map(j['dashboard'])['cards'],
+        dashboard['cards'],
         d.dashboardCards,
       ).where(defaultDashboardCards.contains).toList(),
+      dashboardSizes: {
+        ...d.dashboardSizes,
+        for (final e in dashboardSizes.entries)
+          if (defaultDashboardCards.contains(e.key) &&
+              dashboardSizeChoices.contains('${e.value}'))
+            e.key: '${e.value}',
+      },
       motionEnabled: _bool(ui['motion'], d.motionEnabled),
       pageTransition: _choice(
         ui['pageTransition'],
@@ -1376,7 +1400,10 @@ class DeviceSettings {
       'font': fontFamily,
       'fontScale': fontScale,
     },
-    'dashboard': {'cards': dashboardCards},
+    'dashboard': {
+      'cards': dashboardCards,
+      'sizes': dashboardSizes,
+    },
     'ui': {
       'motion': motionEnabled,
       'pageTransition': pageTransition,

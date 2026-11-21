@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/services.dart' show rootBundle;
 
-/// One clean IP entry from MiliConfig's bundled 696-IP pool.
+/// One clean IP entry from MiliConfig's bundled IP pool.
 class MiliIpEntry {
   final String ip;
   final String country;
@@ -153,7 +153,7 @@ class MiliIpPoolData {
   }
 }
 
-/// Loads MiliConfig's bundled 696-IP pool and network presets from app assets.
+/// Loads MiliConfig's bundled IP pool and network presets from app assets.
 class MiliCatalog {
   static MiliIpPoolData? _ipCache;
   static MiliPresetsBundle? _presetsCache;

@@ -9,6 +9,7 @@ import '../services/chain_proxy.dart';
 import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
 import 'chip_menu.dart';
+import 'expressive.dart';
 import 'prefs.dart';
 
 /// Settings → Chain proxies: the saved configs a connection can exit through (picked per
@@ -92,7 +93,10 @@ class ChainProxiesPage extends StatelessWidget {
     final theme = Theme.of(context);
     final chains = state.profile.chains;
     return Scaffold(
-      appBar: AppBar(title: const Text('Chain proxies')),
+      appBar: ExpressiveSubpageHeader(
+        title: 'پروکسی‌های زنجیره‌ای / Chain proxies',
+        subtitle: 'نودهایی که ترافیک از آن‌ها خارج می‌شود',
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _add(context),
         icon: const Icon(Symbols.add_rounded),

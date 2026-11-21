@@ -1060,9 +1060,9 @@ class _InstallStepState extends State<_InstallStep> {
         height: 20,
         child: CircularProgressIndicator(strokeWidth: 2.2),
       ),
-      _Status.done => const Icon(
+      _Status.done => Icon(
         Symbols.check_circle_rounded,
-        color: Color(0xFF34D399),
+        color: scheme.primary,
         fill: 1,
         size: 21,
       ),
@@ -1312,8 +1312,15 @@ class _DoneStep extends StatelessWidget {
             child: Row(
               children: [
                 row.status == _Status.done
-                    ? const Icon(Symbols.check_circle_rounded, color: Colors.green, fill: 1)
-                    : Icon(Symbols.do_not_disturb_on_rounded, color: theme.colorScheme.outline),
+                    ? Icon(
+                        Symbols.check_circle_rounded,
+                        color: theme.colorScheme.primary,
+                        fill: 1,
+                      )
+                    : Icon(
+                        Symbols.do_not_disturb_on_rounded,
+                        color: theme.colorScheme.outline,
+                      ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../state/app_state.dart';
+import 'expressive.dart';
+import 'mili_i18n.dart';
 
 /// Shows the generated Xray config for the current connection mode.
 class ConfigViewPage extends StatefulWidget {
@@ -28,11 +30,15 @@ class _ConfigViewPageState extends State<ConfigViewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Configuration'),
+      appBar: ExpressiveSubpageHeader(
+        title: MiliLocale.t('کانفیگ Xray', 'Xray config'),
+        subtitle: MiliLocale.t(
+          'پیش‌نمایش JSON ساخته‌شده برای اتصال',
+          'Preview the generated connection JSON',
+        ),
         actions: [
           IconButton(
-            tooltip: 'Copy',
+            tooltip: MiliLocale.t('کپی', 'Copy'),
             icon: const Icon(Symbols.content_copy_rounded),
             onPressed: () async {
               final text = await _config;

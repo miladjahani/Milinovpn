@@ -6,6 +6,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../services/scanner_channel.dart';
 import '../services/xray_config.dart';
 import '../state/app_state.dart';
+import 'expressive.dart';
+import 'mili_i18n.dart';
 import 'prefs.dart';
 import 'theme.dart';
 
@@ -438,32 +440,79 @@ class _CloudflareScannerPageState extends State<CloudflareScannerPage> {
     final resultList = _results;
     final supported = ScannerChannel.isSupported;
     return Scaffold(
-      appBar: AppBar(title: const Text('Cloudflare scanner')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
+      appBar: ExpressiveSubpageHeader(
+        title: MiliLocale.t(
+          'اسکن عمیق ${_protocol.label}',
+          '${_protocol.label} deep scan',
+        ),
+        subtitle: MiliLocale.t(
+          'تونل واقعی و اندازه‌گیری تأخیر هر آی‌پی',
+          'Real tunnel latency for every candidate IP',
+        ),
+      ),
+      body: ExpressivePageBackdrop(
+        child: ListView(
+        padding: const EdgeInsets.only(bottom: 24, top: 6),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-            child: Text(
-              'Measure real delay through a real '
-              '${_protocol.isMasque
-                  ? 'MASQUE'
-                  : _protocol == ScanProtocol.warp
-                  ? 'WARP'
-                  : 'VLESS'} proxy for each candidate Cloudflare IP. '
-              'Starting a scan disconnects the VPN.\n'
-              'Scanner inherits all protocol settings from app like Fingerprint, IPv6, Fragment, UDP Obfs etc.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+          BentoSurface(
+            highlight: true,
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                BentoIcon(
+                  _protocol == ScanProtocol.warp
+                      ? Symbols.shield_rounded
+                      : _protocol.isMasque
+                      ? Symbols.swap_horiz_rounded
+                      : Symbols.bolt_rounded,
+                  filled: true,
+                  box: 46,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _protocol.label,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        MiliLocale.t(
+                          'تأخیر واقعی را از طریق تونل ${_protocol.isMasque ? "MASQUE" : _protocol == ScanProtocol.warp ? "WARP" : "VLESS"} اندازه‌گیری می‌کند. شروع اسکن، VPN فعلی را قطع می‌کند.',
+                          'Measures real latency through a ${_protocol.isMasque ? "MASQUE" : _protocol == ScanProtocol.warp ? "WARP" : "VLESS"} tunnel. Starting a scan disconnects the current VPN.',
+                        ),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          height: 1.5,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           if (!supported)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
-              child: Text('Scanning is currently available on Android.'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Text(
+                MiliLocale.t(
+                  'اسکن در این دستگاه پشتیبانی نمی‌شود.',
+                  'Scanning is currently available on Android.',
+                ),
+                style: TextStyle(color: scheme.error, fontSize: 11.5),
+              ),
             ),
-          const SectionHeader('Scan settings'),
+          BentoSectionLabel(
+            MiliLocale.t('تنظیمات اسکن', 'Scan settings'),
+            icon: Symbols.tune_rounded,
+          ),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 12),
             shape: roundedShape(
@@ -675,6 +724,7 @@ class _CloudflareScannerPageState extends State<CloudflareScannerPage> {
               ),
             ),
         ],
+      ),
       ),
     );
   }

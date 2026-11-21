@@ -370,7 +370,9 @@ class _BettboxLineChartPainter extends CustomPainter {
       oldDelegate.revision != revision || oldDelegate.color != color;
 }
 
-/// Bettbox-style opaque floating pill bottom navigation bar with spring pill animation.
+/// Floating bottom navigation with a physical spring indicator and playful
+/// icon response. The indicator slides with an overshoot curve while the active
+/// icon lifts and the destination label settles into the pill.
 class BettboxFloatingNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onChanged;
@@ -388,51 +390,95 @@ class BettboxFloatingNavBar extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isLight = theme.brightness == Brightness.light;
-    final compact = items.length > 4;
     final barBg = isLight
-        ? Colors.white.withValues(alpha: 0.96)
-        : scheme.surfaceContainerHigh.withValues(alpha: 0.94);
+        ? Colors.white.withValues(alpha: 0.94)
+        : Color.alphaBlend(
+            scheme.primary.withValues(alpha: 0.035),
+            scheme.surfaceContainerHigh,
+          ).withValues(alpha: 0.96);
+    final textDirection = Directionality.of(context);
 
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
         child: RepaintBoundary(
-          child: Container(
-            height: 62,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: barBg,
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
-                color: scheme.onSurface.withValues(alpha: 0.12),
-                width: 0.9,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.28),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                for (int i = 0; i < items.length; i++)
-                  _NavPillItem(
-                    icon: items[i].icon,
-                    label: items[i].label,
-                    compact: compact,
-                    selected: i == selectedIndex,
-                    onTap: () {
-                      if (i != selectedIndex) {
-                        HapticFeedback.selectionClick();
-                        onChanged(i);
-                      }
-                    },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                height: 66,
+                decoration: BoxDecoration(
+                  color: barBg,
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: scheme.onSurface.withValues(alpha: 0.10),
+                    width: 0.9,
                   ),
-              ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: isLight ? 0.07 : 0.26,
+                      ),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    const inset = 7.0;
+                    final width = (constraints.maxWidth - inset * 2) / items.length;
+                    final visualIndex = textDirection == TextDirection.rtl
+                        ? items.length - 1 - selectedIndex
+                        : selectedIndex;
+                    final left = textDirection == TextDirection.rtl
+                        ? constraints.maxWidth - inset - width * (visualIndex + 1)
+                        : inset + width * visualIndex;
+                    return Stack(
+                      children: [
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 460),
+                          curve: Curves.easeOutBack,
+                          left: left,
+                          top: 8,
+                          width: width,
+                          height: 50,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: scheme.primaryContainer.withValues(alpha: 0.88),
+                              borderRadius: BorderRadius.circular(23),
+                              border: Border.all(
+                                color: scheme.primary.withValues(alpha: 0.22),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            for (int i = 0; i < items.length; i++)
+                              Expanded(
+                                child: _NavPillItem(
+                                  icon: items[i].icon,
+                                  label: items[i].label,
+                                  compact: items.length > 4,
+                                  selected: i == selectedIndex,
+                                  onTap: () {
+                                    if (i != selectedIndex) {
+                                      HapticFeedback.mediumImpact();
+                                      onChanged(i);
+                                    }
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -447,6 +493,8 @@ class BettboxFloatingNavBar extends StatelessWidget {
 /// dashboard's periodic ticker from repainting it.
 class BentoBackground extends StatelessWidget {
   final Color accent;
+  final Color? secondary;
+  final Color? tertiary;
   final bool connected;
   final bool busy;
   final bool failed;
@@ -455,6 +503,8 @@ class BentoBackground extends StatelessWidget {
   const BentoBackground({
     super.key,
     required this.accent,
+    this.secondary,
+    this.tertiary,
     this.connected = false,
     this.busy = false,
     this.failed = false,
@@ -466,7 +516,7 @@ class BentoBackground extends StatelessWidget {
     final accentColor = failed
         ? Theme.of(context).colorScheme.error
         : connected
-        ? const Color(0xFF34D399)
+        ? Theme.of(context).colorScheme.primary
         : accent;
     return IgnorePointer(
       child: RepaintBoundary(
@@ -475,6 +525,8 @@ class BentoBackground extends StatelessWidget {
         child: CustomPaint(
           painter: _BentoMeshPainter(
             accent: accentColor,
+            secondary: secondary ?? accentColor,
+            tertiary: tertiary ?? accentColor,
             intensity: busy ? 1.15 : 1.0,
             isLight: isLight,
           ),
@@ -487,11 +539,15 @@ class BentoBackground extends StatelessWidget {
 
 class _BentoMeshPainter extends CustomPainter {
   final Color accent;
+  final Color secondary;
+  final Color tertiary;
   final double intensity;
   final bool isLight;
 
   const _BentoMeshPainter({
     required this.accent,
+    required this.secondary,
+    required this.tertiary,
     required this.intensity,
     required this.isLight,
   });
@@ -535,13 +591,13 @@ class _BentoMeshPainter extends CustomPainter {
     blob(
       Offset(w * 0.88, h * 0.48),
       w * 0.60,
-      const Color(0xFF8B5CF6),
+      Color.lerp(accent, secondary, 0.58)!,
       0.065 * intensity * scale,
     );
     blob(
       Offset(w * 0.28, h * 0.92),
       w * 0.66,
-      const Color(0xFF0EA5E9),
+      Color.lerp(accent, tertiary, 0.68)!,
       0.045 * intensity * scale,
     );
   }
@@ -549,6 +605,8 @@ class _BentoMeshPainter extends CustomPainter {
   @override
   bool shouldRepaint(_BentoMeshPainter oldDelegate) =>
       oldDelegate.accent != accent ||
+      oldDelegate.secondary != secondary ||
+      oldDelegate.tertiary != tertiary ||
       oldDelegate.intensity != intensity ||
       oldDelegate.isLight != isLight;
 }
@@ -571,48 +629,57 @@ class _NavPillItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.symmetric(
-          horizontal: selected ? (compact ? 9 : 15) : (compact ? 6 : 12),
-          vertical: 9,
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: selected ? scheme.primaryContainer : Colors.transparent,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: compact ? 19 : 21,
-              color: selected ? scheme.primary : scheme.onSurfaceVariant,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            padding: EdgeInsets.symmetric(
+              horizontal: selected ? 12 : 9,
+              vertical: 7,
             ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              child: selected
-                  ? Padding(
-                      padding: EdgeInsetsDirectional.only(
-                        start: compact ? 4 : 7,
-                      ),
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: compact ? 10.5 : 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: scheme.primary,
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedScale(
+                  scale: selected ? 1.12 : 1,
+                  duration: const Duration(milliseconds: 540),
+                  curve: Curves.elasticOut,
+                  child: Icon(
+                    icon,
+                    size: compact ? 19 : 21,
+                    fill: selected ? 1 : 0,
+                    color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                  ),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutBack,
+                  child: selected
+                      ? Padding(
+                          padding: const EdgeInsetsDirectional.only(start: 6),
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: compact ? 10.5 : 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: scheme.primary,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

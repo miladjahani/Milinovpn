@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/theme_color.dart';
 import '../state/app_state.dart';
+import 'expressive.dart';
 import 'mili_i18n.dart';
 import 'prefs.dart';
 import 'theme.dart';
@@ -50,8 +51,12 @@ class InterfaceSettingsPage extends StatelessWidget {
           final scheme = Theme.of(context).colorScheme;
           final motion = state.motionEnabled.value;
           return Scaffold(
-            appBar: AppBar(
-              title: Text(MiliLocale.t('ظاهر و حرکت', 'Appearance & motion')),
+            appBar: ExpressiveSubpageHeader(
+              title: MiliLocale.t('ظاهر و حرکت', 'Appearance & motion'),
+              subtitle: MiliLocale.t(
+                'رنگ پویا، فونت، انیمیشن و ترنزیشن صفحات',
+                'Dynamic color, type, motion and page transitions',
+              ),
             ),
             body: ListView(
               padding: const EdgeInsets.only(top: 4, bottom: 32),
@@ -1064,8 +1069,12 @@ class _MotionPreviewPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(MiliLocale.t('پیش‌نمایش حرکت', 'Motion preview')),
+      appBar: ExpressiveSubpageHeader(
+        title: MiliLocale.t('پیش‌نمایش حرکت', 'Motion preview'),
+        subtitle: MiliLocale.t(
+          'همان ترنزیشن و فنر انتخاب‌شده',
+          'The transition and spring you selected',
+        ),
       ),
       body: Center(
         child: Padding(

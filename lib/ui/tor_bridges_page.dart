@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../services/tor_bridges.dart';
 import '../state/app_state.dart';
+import 'expressive.dart';
 import 'prefs.dart';
 
 /// Settings → Tor → Get bridges: pick bridge types, get bridges from Tor Project, and
@@ -58,7 +59,10 @@ class _TorBridgesPageState extends State<TorBridgesPage> {
     final scheme = theme.colorScheme;
     final bridges = _bridges;
     return Scaffold(
-      appBar: AppBar(title: const Text('Get bridges')),
+      appBar: ExpressiveSubpageHeader(
+        title: 'دریافت پل‌های تور / Tor bridges',
+        subtitle: 'پل‌های تازه از توزیع‌کننده رسمی Tor Project',
+      ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [

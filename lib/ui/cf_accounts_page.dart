@@ -7,6 +7,7 @@ import '../services/cloudflare_api.dart';
 import '../services/net_errors.dart';
 import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
+import 'expressive.dart';
 import 'mili_i18n.dart';
 import 'prefs.dart';
 import 'setup_wizard.dart';
@@ -22,8 +23,12 @@ class CfAccountsPage extends StatelessWidget {
     return ValueListenableBuilder<String>(
       valueListenable: MiliLocale.code,
       builder: (context, _, __) => Scaffold(
-        appBar: AppBar(
-          title: Text(MiliLocale.t('حساب‌های کلادفلر', 'Cloudflare accounts')),
+        appBar: ExpressiveSubpageHeader(
+          title: MiliLocale.t('حساب‌های کلادفلر', 'Cloudflare accounts'),
+          subtitle: MiliLocale.t(
+            'مدیریت اتصال، ورکرها و Pages',
+            'Manage accounts, Workers and Pages',
+          ),
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => Navigator.of(context).push(

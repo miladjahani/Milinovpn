@@ -7,6 +7,8 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/settings.dart';
 import '../state/app_state.dart';
+import 'expressive.dart';
+import 'mili_i18n.dart';
 import 'theme.dart';
 
 const _pad = 24.0;
@@ -153,12 +155,16 @@ class _NoisesPageState extends State<NoisesPage> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('UDP noises'),
+        appBar: ExpressiveSubpageHeader(
+          title: MiliLocale.t('نویز UDP / Obfuscation', 'UDP noise / Obfuscation'),
+          subtitle: MiliLocale.t(
+            'تنظیم بسته‌های تصادفی برای WARP و MASQUE',
+            'Obfuscate tunnel traffic for WARP and MASQUE',
+          ),
           actions: [
             TextButton(
               onPressed: _dirty ? _save : null,
-              child: const Text('Save'),
+              child: Text(MiliLocale.t('ذخیره', 'Save')),
             ),
           ],
         ),

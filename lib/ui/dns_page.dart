@@ -9,6 +9,7 @@ import '../models/settings.dart';
 import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
 import 'dns_server_dialog.dart';
+import 'expressive.dart';
 import 'prefs.dart';
 import 'theme.dart';
 
@@ -485,13 +486,25 @@ class _DnsPageState extends State<DnsPage> {
 
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('DNS Servers')),
+        appBar: ExpressiveSubpageHeader(
+          title: MiliLocale.t('سرورهای DNS', 'DNS servers'),
+          subtitle: MiliLocale.t(
+            'DoH، DoQ، TCP و DNS محلی',
+            'DoH, DoQ, TCP and local DNS',
+          ),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('DNS Servers')),
+      appBar: ExpressiveSubpageHeader(
+        title: MiliLocale.t('سرورهای DNS', 'DNS servers'),
+        subtitle: MiliLocale.t(
+          'انتخاب، تست و مدیریت سرورهای امن',
+          'Choose, test and manage encrypted resolvers',
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addCustomServer,
         child: const Icon(Symbols.add_rounded),

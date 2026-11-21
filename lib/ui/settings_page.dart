@@ -14,6 +14,7 @@ import 'cf_accounts_page.dart';
 import 'chain_proxies_page.dart';
 import 'cloudflare_scanner_page.dart';
 import 'dns_page.dart';
+import 'expressive.dart';
 import 'interface_settings_page.dart';
 import 'mili_hub_page.dart';
 import 'mili_i18n.dart';
@@ -87,8 +88,12 @@ class _SettingsPageState extends State<SettingsPage> {
       backgroundColor: widget.embedded ? Colors.transparent : null,
       appBar: widget.embedded
           ? null
-          : AppBar(
-        title: Text(MiliLocale.t('تنظیمات', 'Settings')),
+          : ExpressiveSubpageHeader(
+        title: MiliLocale.t('همه تنظیمات', 'All settings'),
+        subtitle: MiliLocale.t(
+          'کنترل دقیق اتصال، شبکه و امنیت',
+          'Fine control over connection, network and security',
+        ),
         actions: [
           IconButton(
             tooltip: MiliLocale.t('بازنشانی تنظیمات', 'Reset settings'),
@@ -120,12 +125,13 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
-      body: ListView(
+      body: ExpressivePageBackdrop(
+        child: ListView(
         controller: _scroll,
         // Keep the worker/network jump targets mounted just below the fold without
         // eagerly building the whole, very long settings page.
         cacheExtent: 1400,
-        padding: const EdgeInsets.only(bottom: 104),
+        padding: const EdgeInsets.only(bottom: 104, top: 6),
         children: [
           const SizedBox(height: 6),
           _InterfaceEntryCard(
@@ -175,7 +181,7 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               ListTile(
                 leading: Icon(Symbols.hub_rounded, color: Theme.of(context).colorScheme.primary),
-                title: Text(MiliLocale.t('Mili Hub (۶۹۶ آی‌پی · پریست · همگام پنل)', 'Mili Hub (696 IPs · Presets · Panel Sync)')),
+                title: Text(MiliLocale.t('Mili Hub · مخزن آی‌پی، پریست و همگام پنل', 'Mili Hub · IP pool, presets & panel sync')),
                 subtitle: Text(MiliLocale.t('مخزن آی‌پی سالم، پروفایل Fragment/WARP OBF و همگام‌سازی زنده پنل', 'Clean IP pool, Fragment/WARP OBF profiles & live panel sync')),
                 trailing: const Icon(Symbols.chevron_right_rounded),
                 onTap: () => Navigator.of(context).push(
@@ -938,6 +944,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
         ],
+      ),
       ),
     ),
     );

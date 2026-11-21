@@ -21,7 +21,7 @@ class MiliScanResult {
 }
 
 /// Fast, reliable native Dart TCP latency scanner that directly tests IPs from
-/// MiliConfig's 696-IP pool and Cloudflare/Mili sources without requiring a deployed Worker.
+/// MiliConfig's IP pool and Cloudflare/Mili sources without requiring a deployed Worker.
 class MiliLiveScanner {
   bool _cancelled = false;
 

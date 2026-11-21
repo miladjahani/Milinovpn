@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'expressive.dart';
 import 'mili_i18n.dart';
 import 'prefs.dart';
 
@@ -99,7 +100,13 @@ class RoutingPage extends StatelessWidget {
     return ValueListenableBuilder<String>(
       valueListenable: MiliLocale.code,
       builder: (context, _, __) => Scaffold(
-        appBar: AppBar(title: Text(title)),
+        appBar: ExpressiveSubpageHeader(
+          title: title,
+          subtitle: MiliLocale.t(
+            'پیش‌تنظیم‌ها و قوانین دستی مسیر مستقیم',
+            'Presets and custom direct-route rules',
+          ),
+        ),
         body: ListView(
           padding: const EdgeInsets.only(top: 8, bottom: 24),
           children: [

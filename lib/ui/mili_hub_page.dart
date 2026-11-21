@@ -8,10 +8,11 @@ import '../services/mili_ip_pool.dart';
 import '../services/mili_panel_client.dart';
 import '../services/my_ip.dart';
 import '../state/app_state.dart';
-import 'mili_logo.dart';
+import 'expressive.dart';
+import 'mili_i18n.dart';
 import 'theme.dart';
 
-/// MiliConfig Hub: brings Mili Panel's 696-IP Clean Pool (21 countries),
+/// MiliConfig Hub: brings Mili Panel's bundled Clean IP pool,
 /// 1-tap Fragment / WARP OBF / DNS / ECH presets, and live Mili Panel Sync
 /// directly into the native Android VPN client.
 class MiliHubPage extends StatefulWidget {
@@ -45,50 +46,80 @@ class _MiliHubPageState extends State<MiliHubPage>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final state = AppScope.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
+      appBar: ExpressiveSubpageHeader(
+        title: 'Mili Hub',
+        subtitle: MiliLocale.t(
+          'مخزن آی‌پی تمیز، پریست‌ها و همگام‌سازی پنل',
+          'Clean IP pool, presets and panel sync',
+        ),
+      ),
+      body: ExpressivePageBackdrop(
+        child: Column(
           children: [
-            const MiliShieldLogo(size: 26),
-            const SizedBox(width: 8),
-            Text(
-              'Mili Hub',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurface,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: TabBar(
+                    controller: _tabs,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicator: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    dividerColor: Colors.transparent,
+                    labelColor: scheme.onPrimaryContainer,
+                    unselectedLabelColor: scheme.onSurfaceVariant,
+                    labelStyle: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    tabs: [
+                      Tab(
+                        height: 46,
+                        icon: const Icon(Symbols.public_rounded, size: 17),
+                        text: MiliLocale.t('آی‌پی تمیز', 'IP Pool'),
+                      ),
+                      Tab(
+                        height: 46,
+                        icon: const Icon(Symbols.bolt_rounded, size: 17),
+                        text: MiliLocale.t('پریست‌ها', 'Presets'),
+                      ),
+                      Tab(
+                        height: 46,
+                        icon: const Icon(
+                          Symbols.cloud_sync_rounded,
+                          size: 17,
+                        ),
+                        text: MiliLocale.t('همگام‌سازی', 'Panel Sync'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabs,
+                children: const [_IpPoolTab(), _PresetsTab(), _PanelSyncTab()],
               ),
             ),
           ],
         ),
-        bottom: TabBar(
-          controller: _tabs,
-          indicatorColor: scheme.primary,
-          labelColor: scheme.primary,
-          unselectedLabelColor: scheme.onSurfaceVariant,
-          tabs: const [
-            Tab(icon: Icon(Symbols.public_rounded, size: 18), text: '696 IP Pool'),
-            Tab(icon: Icon(Symbols.bolt_rounded, size: 18), text: 'Presets'),
-            Tab(icon: Icon(Symbols.cloud_sync_rounded, size: 18), text: 'Panel Sync'),
-          ],
-        ),
       ),
-      body: TabBarView(
-          controller: _tabs,
-          children: const [
-            _IpPoolTab(),
-            _PresetsTab(),
-            _PanelSyncTab(),
-          ],
-        ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Tab 1: Mili 696 Clean IP Pool (21 Countries) + Fixed IP & Random Picker
+// Tab 1: Mili Clean IP Pool + Fixed IP & Random Picker
 // ---------------------------------------------------------------------------
 
 class _IpPoolTab extends StatefulWidget {
@@ -153,7 +184,7 @@ class _IpPoolTabState extends State<_IpPoolTab> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '${data.ips.length} Clean IPs · ${data.countries.length} Countries',
+                              '${data.countries.length} Countries · Clean IP Pool',
                               style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
@@ -200,7 +231,7 @@ class _IpPoolTabState extends State<_IpPoolTab> {
                     padding: const EdgeInsets.only(right: 8),
                     child: FilterChip(
                       selected: _selectedCountry.isEmpty,
-                      label: Text('All (${data.ips.length})'),
+                      label: const Text('All'),
                       onSelected: (_) => setState(() => _selectedCountry = ''),
                     ),
                   ),

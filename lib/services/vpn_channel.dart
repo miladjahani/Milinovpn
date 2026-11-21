@@ -128,6 +128,9 @@ class VpnChannel {
 
   static Future<void> clearLog() => _methods.invokeMethod('clearLog');
 
+  /// Deletes temporary files from the app cache without touching profiles or keys.
+  static Future<void> clearCache() => _methods.invokeMethod('clearCache');
+
   /// Saves [content] as [name] and opens the share sheet so the user picks an app.
   static Future<void> shareFile({required String name, required String content, String title = 'Share'}) =>
       _methods.invokeMethod('shareFile', {'name': name, 'content': content, 'title': title});
@@ -218,6 +221,13 @@ class VpnChannel {
       version: '${m['version'] ?? ''}',
       abis: (m['abis'] as List? ?? const []).map((e) => '$e').toList(),
     );
+  }
+
+  /// Process resources used by the native core (which runs in this app's process).
+  /// CPU time is cumulative; callers sample it twice to derive a live percentage.
+  static Future<({int pssKb, int cpuMs})> coreProcessStats() async {
+    final m = await _methods.invokeMapMethod<String, int>('coreProcessStats');
+    return (pssKb: m?['pssKb'] ?? 0, cpuMs: m?['cpuMs'] ?? 0);
   }
 
   /// Delay in ms through the running tunnel.

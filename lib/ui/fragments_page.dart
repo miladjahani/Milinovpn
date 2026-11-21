@@ -4,6 +4,8 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/settings.dart';
 import '../state/app_state.dart';
+import 'expressive.dart';
+import 'mili_i18n.dart';
 import 'theme.dart';
 
 const _pad = 24.0;
@@ -121,12 +123,13 @@ class _FragmentsPageState extends State<FragmentsPage> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Fragments'),
+        appBar: ExpressiveSubpageHeader(
+          title: 'تنظیمات فرگمنت / TCP fragments',
+          subtitle: 'تکه‌سازی ClientHello برای عبور از DPI',
           actions: [
             TextButton(
               onPressed: _dirty ? _save : null,
-              child: const Text('Save'),
+              child: Text(MiliLocale.t('ذخیره', 'Save')),
             ),
           ],
         ),

@@ -12,6 +12,7 @@ import android.graphics.Canvas
 import android.net.Uri
 import android.net.VpnService
 import android.os.Build
+import android.os.Debug
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
@@ -36,8 +37,6 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val METHOD_CHANNEL = "miliconfig/core"
         private const val EVENT_CHANNEL = "miliconfig/state"
-        private const val MIHOMO_METHOD_CHANNEL = "miliconfig/mihomo"
-        private const val MIHOMO_EVENT_CHANNEL = "miliconfig/mihomoState"
         private const val SCANNER_EVENT_CHANNEL = "milivpn/scanner"
         private const val REQUEST_VPN = 0x0B9B
         private const val REQUEST_NOTIFICATIONS = 0x0B9C
@@ -61,30 +60,12 @@ class MainActivity : FlutterActivity() {
     /** Android 7-9: waiting for the Save-as screen, with the content to write. */
     private var pendingSave: Pair<MethodChannel.Result, String>? = null
     private var stateListener: CoreManager.Listener? = null
-    private var mihomoStateListener: MihomoStatus.Listener? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
         MethodChannel(messenger, METHOD_CHANNEL).setMethodCallHandler(::onMethodCall)
-        MethodChannel(messenger, MIHOMO_METHOD_CHANNEL).setMethodCallHandler(::onMihomoMethodCall)
-
-        EventChannel(messenger, MIHOMO_EVENT_CHANNEL).setStreamHandler(object : EventChannel.StreamHandler {
-            override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
-                val listener = MihomoStatus.Listener { state, error ->
-                    events.success(mihomoStateEvent(state, error))
-                }
-                mihomoStateListener = listener
-                MihomoStatus.addListener(listener)
-                events.success(mihomoStateEvent(MihomoStatus.state, MihomoStatus.lastError))
-            }
-
-            override fun onCancel(arguments: Any?) {
-                mihomoStateListener?.let { MihomoStatus.removeListener(it) }
-                mihomoStateListener = null
-            }
-        })
 
         EventChannel(messenger, EVENT_CHANNEL).setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
@@ -149,7 +130,6 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         activityDestroyed.set(true)
         stateListener?.let { CoreManager.removeListener(it) }
-        mihomoStateListener?.let { MihomoStatus.removeListener(it) }
         scannerPolling.set(false)
         scannerBridge.closeScan()
         scannerPoller.shutdown()
@@ -162,16 +142,6 @@ class MainActivity : FlutterActivity() {
         "error" to error,
         "connectedAt" to CoreManager.connectedAt,
         "detail" to CoreManager.detail,
-    )
-
-    private fun mihomoStateEvent(
-        state: MihomoStatus.State,
-        error: String?,
-    ): Map<String, Any?> = mapOf(
-        "state" to state.name.lowercase(),
-        "error" to error,
-        "connectedAt" to MihomoStatus.connectedAt,
-        "remark" to MihomoStatus.remark,
     )
 
     private fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -229,7 +199,23 @@ class MainActivity : FlutterActivity() {
                 CoreLog.clear(this)
                 null
             }
+            "clearCache" -> runInBackground(result) {
+                cacheDir.listFiles()?.forEach { it.deleteRecursively() }
+                null
+            }
             "versions" -> runInBackground(result) { CoreManager.versions(this) }
+            // The Xray core runs in this process, so its memory/CPU footprint is measured
+            // from the app process. CPU time is cumulative; Dart samples deltas.
+            "coreProcessStats" -> {
+                val info = Debug.MemoryInfo()
+                Debug.getMemoryInfo(info)
+                result.success(
+                    mapOf(
+                        "pssKb" to info.totalPss,
+                        "cpuMs" to android.os.Process.getElapsedCpuTime(),
+                    ),
+                )
+            }
             "saveGeoAssets" -> {
                 val files = call.argument<Map<String, Map<String, Any>>>("files").orEmpty().mapValues { (_, f) ->
                     (f["data"] as ByteArray) to (f["sha256"] as String)
@@ -363,83 +349,6 @@ class MainActivity : FlutterActivity() {
                 result.success(null)
             }
             "installApk" -> installApk(call.argument<String>("path"), result)
-            else -> result.notImplemented()
-        }
-    }
-
-    private fun onMihomoMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        when (call.method) {
-            "setup" -> {
-                val config = call.argument<String>("config")
-                if (config.isNullOrBlank()) {
-                    result.error("ARG", "Mihomo config is required", null)
-                    return
-                }
-                runInBackground(result) { MihomoCore.setup(this, config) }
-            }
-            "start" -> {
-                if (MihomoCore.profileFile(this).let { !it.isFile || it.length() == 0L }) {
-                    result.error("NO_PROFILE", "Add a subscription first", null)
-                    return
-                }
-                MihomoVpnService.start(this)
-                result.success(null)
-            }
-            "stop" -> {
-                MihomoVpnService.stop(this)
-                result.success(null)
-            }
-            "status" -> result.success(
-                mihomoStateEvent(MihomoStatus.state, MihomoStatus.lastError),
-            )
-            "proxies" -> runInBackground(result) { MihomoCore.proxies() }
-            "testGroups" -> {
-                val groups = call.argument<List<String>>("groups") ?: emptyList()
-                val url = call.argument<String>("url")
-                    ?: "https://www.gstatic.com/generate_204"
-                val timeout = call.argument<Int>("timeout") ?: 5000
-                if (groups.isEmpty()) {
-                    result.error("ARG", "At least one group is required", null)
-                    return
-                }
-                runInBackground(result) { MihomoCore.testGroups(groups, url, timeout) }
-            }
-            "testDelay" -> {
-                val name = call.argument<String>("name")
-                if (name.isNullOrBlank()) {
-                    result.error("ARG", "Proxy name is required", null)
-                    return
-                }
-                val url = call.argument<String>("url")
-                    ?: "https://www.gstatic.com/generate_204"
-                val timeout = call.argument<Int>("timeout") ?: 5000
-                runInBackground(result) { MihomoCore.testDelay(name, url, timeout) }
-            }
-            "select" -> {
-                val group = call.argument<String>("group") ?: "MILI"
-                val name = call.argument<String>("name")
-                if (name.isNullOrBlank()) {
-                    result.error("ARG", "Proxy name is required", null)
-                    return
-                }
-                runInBackground(result) {
-                    MihomoCore.select(group, name)
-                    null
-                }
-            }
-            "refreshProvider" -> {
-                val name = call.argument<String>("name")
-                if (name.isNullOrBlank()) {
-                    result.error("ARG", "Provider name is required", null)
-                    return
-                }
-                runInBackground(result) {
-                    MihomoCore.refreshProvider(name)
-                    null
-                }
-            }
-            "traffic" -> runInBackground(result) { MihomoCore.traffic() }
-            "totalTraffic" -> runInBackground(result) { MihomoCore.totalTraffic() }
             else -> result.notImplemented()
         }
     }

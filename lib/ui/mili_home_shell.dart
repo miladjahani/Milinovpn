@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,20 +20,21 @@ import 'bettbox_widgets.dart';
 import 'cf_accounts_page.dart';
 import 'chain_proxies_page.dart';
 import 'cloudflare_scanner_page.dart';
-import 'config_view_page.dart';
+import 'dashboard_page.dart';
+import 'dashboard_tools.dart';
 import 'format.dart';
 import 'log_page.dart';
 import 'mili_bettbox_settings.dart';
 import 'mili_i18n.dart';
-import 'mihomo_page.dart';
 import 'mili_logo.dart';
 import 'mili_toolbox_page.dart';
 import 'region_picker.dart';
+import 'scanner_page.dart';
 import 'theme.dart';
 import 'update_sheet.dart';
 
 const _tabular = TextStyle(fontFeatures: [FontFeature.tabularFigures()]);
-const _activeGreen = Color(0xFF34D399);
+const _headerHeight = 58.0;
 
 /// Psiphon and Tor use one shared exit location; changing it asks for a reconnect.
 Future<void> _pickExitRegion(BuildContext context, AppState state) async {
@@ -43,15 +45,109 @@ Future<void> _pickExitRegion(BuildContext context, AppState state) async {
   if (picked != null) state.setExitRegion(picked);
 }
 
+/// Node selection, protocols, ping testing and the subscription importer are
+/// no longer a separate tab: they open from the dashboard's main core card.
+Future<void> _showNodeManager(BuildContext context) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  backgroundColor: Colors.transparent,
+  barrierColor: Colors.black.withValues(alpha: 0.52),
+  builder: (context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.90,
+      minChildSize: 0.55,
+      maxChildSize: 0.96,
+      builder: (context, controller) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        child: Material(
+          color: scheme.surface,
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 8, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: scheme.primary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: scheme.primary.withValues(alpha: 0.22),
+                        ),
+                      ),
+                      child: Icon(
+                        Symbols.hub_rounded,
+                        color: scheme.primary,
+                        fill: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            MiliLocale.t('هسته و اتصال', 'Core & connection'),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                          Text(
+                            MiliLocale.t(
+                              'انتخاب، تست پینگ و مدیریت نودها',
+                              'Select, ping-test and manage nodes',
+                            ),
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Symbols.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _BettboxNodesTab(
+                  embedded: true,
+                  scrollController: controller,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  },
+);
+
 /// MiliConfig v2.0.0 — Full Bettbox Architecture:
 /// 1) Dashboard: StartButton Hero, Live non-freezing Bezier Speed Chart,
 ///    Daily Cloudflare Worker Requests Quota, Network Detection, Traffic Usage, Quick Options
 /// 2) Nodes (Proxies): Bettbox-style 2-column grid for Worker Deployments,
 ///    Protocols (VLESS WS / XHTTP / Trojan / SS), Built-in Cores (WARP/MASQUE/Psiphon/Tor),
 ///    Chain Proxies, and Panel Sync
-/// 3) Scanner & 696 Pool: Built-in Live TCP Ping Scanner + Native Go REAL Tunnel Scanners
-///    + 696 IP Pool usable as BOTH Clean IP & ProxyIP
-/// 4) Tools & Settings: Full Bettbox Settings Hub
+/// 3) Scanner: live TCP probing, Clean IP/Proxy actions and deep tunnel scans.
+/// 4) Settings: the expressive central settings directory.
+/// Nodes live inside the Core & Connection card instead of a separate tab.
 class MiliHomeShell extends StatefulWidget {
   const MiliHomeShell({super.key});
 
@@ -83,9 +179,27 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
         extendBody: true,
         extendBodyBehindAppBar: true,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
+          toolbarHeight: _headerHeight,
+          backgroundColor: scheme.surface.withValues(alpha: 0.70),
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
+          flexibleSpace: ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      scheme.surface.withValues(alpha: 0.88),
+                      scheme.surface.withValues(alpha: 0.58),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           titleSpacing: 16,
           title: Row(
             children: [
@@ -119,35 +233,7 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                   AppScope.of(context).availableUpdate!,
                 ),
               ),
-            if (_tab == 0)
-              IconButton(
-                tooltip: MiliLocale.t(
-                  'شخصی‌سازی داشبورد',
-                  'Customize dashboard',
-                ),
-                icon: const Icon(Symbols.edit_rounded, size: 20),
-                onPressed: () => showModalBottomSheet<void>(
-                  context: context,
-                  showDragHandle: true,
-                  isScrollControlled: true,
-                  builder: (_) => const _DashboardCardsSheet(),
-                ),
-              ),
-            IconButton(
-              tooltip: MiliLocale.t('گزارش‌ها', 'Logs'),
-              icon: const Icon(Symbols.terminal_rounded, size: 21),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LogPage()),
-              ),
-            ),
-            IconButton(
-              tooltip: MiliLocale.t('کانفیگ Xray', 'Config JSON'),
-              icon: const Icon(Symbols.data_object_rounded, size: 21),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ConfigViewPage()),
-              ),
-            ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
           ],
         ),
         body: LayoutBuilder(
@@ -156,13 +242,15 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
             final width = constraints.maxWidth > 920
                 ? 920.0
                 : constraints.maxWidth;
-            final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
+            final topInset = MediaQuery.paddingOf(context).top + _headerHeight;
             return Stack(
               children: [
                 Positioned.fill(
                   child: state.meshBackground.value
                       ? BentoBackground(
                           accent: scheme.primary,
+                          secondary: scheme.secondary,
+                          tertiary: scheme.tertiary,
                           connected: state.isConnected,
                           busy: state.isBusy,
                           failed:
@@ -171,6 +259,28 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                           isLight: isLight,
                         )
                       : ColoredBox(color: scheme.surface),
+                ),
+                // A soft fade under the compact blurred header: cards dissolving
+                // beneath it instead of meeting a hard cut line.
+                PositionedDirectional(
+                  top: topInset - 16,
+                  start: 0,
+                  end: 0,
+                  height: 22,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            scheme.surface.withValues(alpha: 0.72),
+                            scheme.surface.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
                 Positioned(
                   top: topInset,
@@ -183,23 +293,40 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                       height: constraints.maxHeight - topInset,
                       child: AnimatedSwitcher(
                         duration: state.motionEnabled.value
-                            ? const Duration(milliseconds: 160)
+                            ? const Duration(milliseconds: 300)
                             : Duration.zero,
                         switchInCurve: Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
-                        // Fade-only tab changes avoid transforming two complex pages every frame.
-                        transitionBuilder: (child, anim) =>
-                            FadeTransition(opacity: anim, child: child),
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: CurvedAnimation(
+                            parent: anim,
+                            curve: Curves.easeOutCubic,
+                          ),
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0.035, 0),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: anim,
+                                curve: Curves.easeOutBack,
+                              ),
+                            ),
+                            child: child,
+                          ),
+                        ),
                         child: RepaintBoundary(
                           key: ValueKey(_tab),
                           child: switch (_tab) {
-                            0 => _BettboxDashboardTab(
-                              onJumpTab: (i) => setState(() => _tab = i),
+                            0 => ExpressiveDashboardTab(
+                              onOpenScanner: () => setState(() => _tab = 1),
+                              onOpenSettings: () => setState(() => _tab = 2),
+                              onManageNodes: () => _showNodeManager(context),
                             ),
-                            1 => const _BettboxNodesTab(),
-                            2 => const _MiliScannerTab(),
-                            3 => const MiliBettboxSettingsTab(),
-                            _ => const MihomoPage(),
+                            1 => const ExpressiveScannerTab(),
+                            _ => MiliBettboxSettingsTab(
+                              onOpenScanner: () => setState(() => _tab = 1),
+                            ),
                           },
                         ),
                       ),
@@ -219,20 +346,12 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
               label: MiliLocale.t('داشبورد', 'Dashboard'),
             ),
             (
-              icon: Symbols.hub_rounded,
-              label: MiliLocale.t('نودها', 'Nodes'),
-            ),
-            (
               icon: Symbols.radar_rounded,
               label: MiliLocale.t('اسکنر', 'Scanner'),
             ),
             (
               icon: Symbols.tune_rounded,
-              label: MiliLocale.t('ابزارها', 'Tools'),
-            ),
-            (
-              icon: Symbols.bolt_rounded,
-              label: MiliLocale.t('میهیمو', 'Mihomo'),
+              label: MiliLocale.t('تنظیمات', 'Settings'),
             ),
           ],
         ),
@@ -356,7 +475,7 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
           icon: Symbols.power_settings_new_rounded,
           watermarkIcon: connected ? Symbols.verified_user_rounded : Symbols.shield_rounded,
           borderColor: connected
-              ? _activeGreen.withValues(alpha: 0.6)
+              ? scheme.primary.withValues(alpha: 0.6)
               : (failed ? scheme.error.withValues(alpha: 0.6) : null),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,7 +498,7 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w800,
                             color: connected
-                                ? _activeGreen
+                                ? scheme.primary
                                 : (failed ? scheme.error : scheme.onSurface),
                           ),
                         ),
@@ -418,7 +537,7 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
                       height: 60,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(18),
-                        color: connected ? _activeGreen : scheme.primary,
+                        color: connected ? scheme.primary : scheme.primary,
                       ),
                       child: Center(
                         child: busy
@@ -543,7 +662,7 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
               BettboxLineChart(
                 values: List<double>.of(_speedHistory),
                 revision: _chartRev,
-                color: connected ? _activeGreen : scheme.primary,
+                color: connected ? scheme.primary : scheme.primary,
                 height: 56,
               ),
             ],
@@ -604,7 +723,7 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
                               fontWeight: FontWeight.w700,
                               color: usage.total > 85000
                                   ? scheme.error
-                                  : _activeGreen,
+                                  : scheme.primary,
                             ),
                           ),
                         ],
@@ -682,7 +801,7 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
                       style: _tabular.copyWith(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: state.pingMs != null ? _activeGreen : scheme.onSurface,
+                        color: state.pingMs != null ? scheme.primary : scheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -966,7 +1085,13 @@ class _DashboardCardsSheet extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _BettboxNodesTab extends StatefulWidget {
-  const _BettboxNodesTab();
+  final bool embedded;
+  final ScrollController? scrollController;
+
+  const _BettboxNodesTab({
+    this.embedded = false,
+    this.scrollController,
+  });
 
   @override
   State<_BettboxNodesTab> createState() => _BettboxNodesTabState();
@@ -993,7 +1118,13 @@ class _BettboxNodesTabState extends State<_BettboxNodesTab> {
     final chains = state.profile.chains;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 102),
+      controller: widget.scrollController,
+      padding: EdgeInsets.fromLTRB(
+        16,
+        widget.embedded ? 4 : 6,
+        16,
+        widget.embedded ? 28 : 102,
+      ),
       children: [
         // 1. Cloudflare Worker & Pages Nodes
         BettboxTileCard(
@@ -1403,7 +1534,7 @@ class _NodeCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// TAB 3: Enhanced Dual-Engine Scanner + 696 Clean IP & ProxyIP Pool
+// Legacy scanner implementation (replaced by ExpressiveScannerTab).
 // ---------------------------------------------------------------------------
 
 class _MiliScannerTab extends StatefulWidget {
@@ -1646,8 +1777,8 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
                     // 1. Live Fast Mili TCP Scanner (works immediately, zero worker needed!)
                     BettboxTileCard(
                       title: MiliLocale.t(
-                        'اسکنر زنده سریع (استخر ۶۹۶ آی‌پی میلی)',
-                        'Live Fast Scanner (696 Mili Pool)',
+                        MiliLocale.t('اسکنر زنده سریع', 'Fast live scanner'),
+                        'Fast live scanner',
                       ),
                       icon: Symbols.speed_rounded,
                       watermarkIcon: Symbols.radar_rounded,
@@ -1758,9 +1889,9 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
                                           fontWeight: FontWeight.w800,
                                           fontSize: 12,
                                           color: r.pingMs < 180
-                                              ? _activeGreen
+                                              ? scheme.primary
                                               : (r.pingMs < 400
-                                                    ? const Color(0xFFFBBF24)
+                                                    ? scheme.tertiary
                                                     : scheme.error),
                                         ),
                                       ),
@@ -1821,11 +1952,11 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
                     ),
                     const SizedBox(height: 12),
 
-                    // 3. 696 IP Pool Header (Dual Clean IP + ProxyIP actions)
+                    // IP pool actions.
                     BettboxTileCard(
                       title: MiliLocale.t(
-                        'استخر ۶۹۶ آی‌پی (آی‌پی تمیز + پروکسی آی‌پی)',
-                        '696 IP Pool (Clean IP + ProxyIP)',
+                        MiliLocale.t('مخزن آی‌پی (تمیز + پروکسی)', 'IP pool (Clean + Proxy)'),
+                        'IP pool (Clean + Proxy)',
                       ),
                       icon: Symbols.dns_rounded,
                       child: Column(
@@ -1884,7 +2015,7 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
                                       selected: _selectedCountry.isEmpty,
                                       visualDensity: VisualDensity.compact,
                                       label: Text(
-                                        '${MiliLocale.t("همه", "All")} (${data.ips.length})',
+                                        MiliLocale.t('همه', 'All'),
                                       ),
                                       onSelected: (_) =>
                                           setState(() => _selectedCountry = ''),
@@ -1962,7 +2093,7 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
                               icon: Icon(
                                 Symbols.bolt_rounded,
                                 size: 19,
-                                color: isClean ? _activeGreen : scheme.primary,
+                                color: isClean ? scheme.primary : scheme.primary,
                               ),
                               onPressed: () =>
                                   _applyCleanIps(context, [item.ip], item.country),
@@ -1972,7 +2103,7 @@ class _MiliScannerTabState extends State<_MiliScannerTab> {
                               icon: Icon(
                                 Symbols.dns_rounded,
                                 size: 19,
-                                color: isProxy ? _activeGreen : scheme.secondary,
+                                color: isProxy ? scheme.primary : scheme.secondary,
                               ),
                               onPressed: () =>
                                   _applyProxyIps(context, [item.ip], item.country),

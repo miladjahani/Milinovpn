@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../services/vpn_channel.dart';
 import '../models/settings.dart';
+import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
+import 'expressive.dart';
 
 class PerAppPage extends StatefulWidget {
   const PerAppPage({super.key});
@@ -30,8 +31,9 @@ class _PerAppPageState extends State<PerAppPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Per-app proxy'),
+      appBar: ExpressiveSubpageHeader(
+        title: 'تفکیک برنامه‌ها / Per-app proxy',
+        subtitle: 'انتخاب برنامه‌های عبوری یا مستثنی از VPN',
         actions: [
           IconButton(
             tooltip: _showSystem ? 'Hide system apps' : 'Show system apps',

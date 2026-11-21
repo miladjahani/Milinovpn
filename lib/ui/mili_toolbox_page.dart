@@ -11,12 +11,11 @@ import '../services/local_proxy.dart';
 import '../services/my_ip.dart';
 import '../state/app_state.dart';
 import 'bettbox_widgets.dart';
+import 'expressive.dart';
 import 'format.dart';
 import 'mili_i18n.dart';
 
 const _tabular = TextStyle(fontFeatures: [FontFeature.tabularFigures()]);
-const _okGreen = Color(0xFF34D399);
-const _warnAmber = Color(0xFFFBBF24);
 
 /// Bettbox-style Network Toolbox Hub:
 /// 1) Speed Test (real download throughput + latency)
@@ -35,46 +34,87 @@ class MiliToolboxPage extends StatelessWidget {
       length: 5,
       initialIndex: initialTool.clamp(0, 4),
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(MiliLocale.t('جعبه‌ابزار شبکه', 'Network Toolbox')),
-          bottom: TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            indicatorColor: scheme.primary,
-            labelColor: scheme.primary,
-            unselectedLabelColor: scheme.onSurfaceVariant,
-            tabs: [
-              Tab(
-                icon: const Icon(Symbols.speed_rounded, size: 18),
-                text: MiliLocale.t('تست سرعت', 'Speed Test'),
+        appBar: ExpressiveSubpageHeader(
+          title: MiliLocale.t('جعبه‌ابزار شبکه', 'Network Toolbox'),
+          subtitle: MiliLocale.t(
+            'سرعت، بازگشایی سرویس، آی‌پی، پینگ و DNS',
+            'Speed, unlock checks, IP, ping and DNS',
+          ),
+        ),
+        body: ExpressivePageBackdrop(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: TabBar(
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      indicator: BoxDecoration(
+                        color: scheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      dividerColor: Colors.transparent,
+                      labelColor: scheme.onPrimaryContainer,
+                      unselectedLabelColor: scheme.onSurfaceVariant,
+                      labelStyle: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      tabs: [
+                        Tab(
+                          height: 46,
+                          icon: const Icon(Symbols.speed_rounded, size: 17),
+                          text: MiliLocale.t('تست سرعت', 'Speed'),
+                        ),
+                        Tab(
+                          height: 46,
+                          icon: const Icon(Symbols.verified_rounded, size: 17),
+                          text: MiliLocale.t('بازگشایی', 'Unlock'),
+                        ),
+                        Tab(
+                          height: 46,
+                          icon: const Icon(Symbols.public_rounded, size: 17),
+                          text: MiliLocale.t('آی‌پی', 'IP'),
+                        ),
+                        Tab(
+                          height: 46,
+                          icon: const Icon(
+                            Symbols.network_ping_rounded,
+                            size: 17,
+                          ),
+                          text: MiliLocale.t('پینگ', 'Ping'),
+                        ),
+                        Tab(
+                          height: 46,
+                          icon: const Icon(Symbols.dns_rounded, size: 17),
+                          text: MiliLocale.t('DNS', 'DNS'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              Tab(
-                icon: const Icon(Symbols.verified_rounded, size: 18),
-                text: MiliLocale.t('بازگشایی سرویس', 'Unlock'),
-              ),
-              Tab(
-                icon: const Icon(Symbols.public_rounded, size: 18),
-                text: MiliLocale.t('بررسی آی‌پی', 'IP Lookup'),
-              ),
-              Tab(
-                icon: const Icon(Symbols.network_ping_rounded, size: 18),
-                text: MiliLocale.t('پینگ محلی', 'Ping'),
-              ),
-              Tab(
-                icon: const Icon(Symbols.dns_rounded, size: 18),
-                text: MiliLocale.t('پرس‌وجوی DNS', 'DNS Query'),
+              Expanded(
+                child: TabBarView(
+                  children: const [
+                    _SpeedTestTool(),
+                    _MediaUnlockTool(),
+                    _IpLookupTool(),
+                    _LocalPingTool(),
+                    _DnsQueryTool(),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
-        body: const TabBarView(
-          children: [
-            _SpeedTestTool(),
-            _MediaUnlockTool(),
-            _IpLookupTool(),
-            _LocalPingTool(),
-            _DnsQueryTool(),
-          ],
         ),
       ),
     );
@@ -214,7 +254,7 @@ class _SpeedTestToolState extends State<_SpeedTestTool> {
               BettboxLineChart(
                 values: List<double>.of(_samples),
                 revision: _rev,
-                color: _okGreen,
+                color: scheme.primary,
                 height: 70,
               ),
               const SizedBox(height: 12),
@@ -389,7 +429,9 @@ class _MediaUnlockToolState extends State<_MediaUnlockTool> {
                                 ? Symbols.check_circle_rounded
                                 : Symbols.cancel_rounded,
                             size: 19,
-                            color: _results[t.name]!.ok ? _okGreen : scheme.error,
+                            color: _results[t.name]!.ok
+                                ? scheme.primary
+                                : scheme.error,
                           ),
                         ] else
                           Text(
@@ -561,6 +603,7 @@ class _LocalPingToolState extends State<_LocalPingTool> {
         : (_pings.reduce((a, b) => a + b) / _pings.length).round();
     final minMs = _pings.isEmpty ? 0 : _pings.reduce((a, b) => a < b ? a : b).round();
     final maxMs = _pings.isEmpty ? 0 : _pings.reduce((a, b) => a > b ? a : b).round();
+    final scheme = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -600,7 +643,7 @@ class _LocalPingToolState extends State<_LocalPingTool> {
                 BettboxLineChart(
                   values: List<double>.of(_pings),
                   revision: _rev,
-                  color: avg < 180 ? _okGreen : _warnAmber,
+                  color: avg < 180 ? scheme.primary : scheme.tertiary,
                   height: 60,
                 ),
                 const SizedBox(height: 10),

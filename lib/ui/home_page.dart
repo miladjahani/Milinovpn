@@ -415,7 +415,7 @@ class _AccountUsage extends StatelessWidget {
 
 
 /// Quick-access glowing action strip for MiliConfig's exclusive tools:
-/// 696 Clean IP Pool, 1-tap Presets, and live Mili Panel Sync.
+/// Clean IP pool, 1-tap presets, and live Mili Panel Sync.
 class _MiliHubStrip extends StatelessWidget {
   const _MiliHubStrip();
 
@@ -494,7 +494,7 @@ class _MiliHubStrip extends StatelessWidget {
           pill(
             icon: Symbols.public_rounded,
             title: 'IP Pool',
-            subtitle: '696 Clean IPs',
+            subtitle: 'Clean IP pool',
             tab: 0,
             accent: scheme.primary,
           ),
