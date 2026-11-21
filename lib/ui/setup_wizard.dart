@@ -59,7 +59,12 @@ class _SetupWizardState extends State<SetupWizard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canGoBack = _step != _Step.done && !_installing && (_step != _Step.account || _signingUp);
+    final scheme = theme.colorScheme;
+    final isLight = theme.brightness == Brightness.light;
+    final canGoBack =
+        _step != _Step.done &&
+        !_installing &&
+        (_step != _Step.account || _signingUp);
 
     return PopScope(
       // System back goes to the previous step instead of closing the app.
@@ -69,12 +74,24 @@ class _SetupWizardState extends State<SetupWizard> {
       },
       child: Scaffold(
         body: DecoratedBox(
-          decoration: const BoxDecoration(
+          // Use the same adaptive surface as the Bento shell. The wizard is shown before
+          // the shell, so it must not be stuck on a dark gradient when the user chose light.
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF06120B), Color(0xFF040806), Color(0xFF020504)],
-              stops: [0, 0.45, 1],
+              colors: isLight
+                  ? const [
+                      Color(0xFFF8FAFC),
+                      Color(0xFFF1F5F9),
+                      Color(0xFFF7F8FC),
+                    ]
+                  : [
+                      scheme.primary.withValues(alpha: 0.10),
+                      scheme.surface,
+                      scheme.surface,
+                    ],
+              stops: const [0, 0.45, 1],
             ),
           ),
           child: SafeArea(
@@ -225,7 +242,8 @@ class _StepBar extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 17),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
-                  height: 2,
+                  height: 3,
+                  borderRadius: BorderRadius.circular(99),
                   color: i <= current
                       ? scheme.primary
                       : scheme.surfaceContainerHighest,
@@ -280,6 +298,72 @@ class _StepBar extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// A compact progress summary above the worker installation checklist.
+class _InstallProgress extends StatelessWidget {
+  final List<_Row> rows;
+  const _InstallProgress({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final total = rows.length;
+    final done = rows.where((row) => row.status == _Status.done).length;
+    final failed = rows.where((row) => row.status == _Status.failed).length;
+    final progress = total == 0 ? 0.0 : done / total;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                failed > 0
+                    ? Symbols.error_outline_rounded
+                    : Symbols.rocket_launch_rounded,
+                size: 17,
+                color: failed > 0 ? scheme.error : scheme.primary,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  MiliLocale.t('پیشرفت نصب ورکر', 'Worker installation'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                '$done / $total',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 11,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 5,
+              color: failed > 0 ? scheme.error : scheme.primary,
+              backgroundColor: scheme.surfaceContainerHighest,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -964,30 +1048,81 @@ class _InstallStepState extends State<_InstallStep> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final icon = switch (row.status) {
-      _Status.waiting => Icon(Symbols.radio_button_unchecked_rounded, color: scheme.outline),
-      _Status.running => const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
-      _Status.done => const Icon(Symbols.check_circle_rounded, color: Colors.green, fill: 1),
-      _Status.failed => Icon(Symbols.cancel_rounded, color: scheme.error, fill: 1),
-      _Status.skipped => Icon(Symbols.do_not_disturb_on_rounded, color: scheme.outline),
+      _Status.waiting => Icon(
+        Symbols.radio_button_unchecked_rounded,
+        color: scheme.outline,
+        size: 21,
+      ),
+      _Status.running => const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2.2),
+      ),
+      _Status.done => const Icon(
+        Symbols.check_circle_rounded,
+        color: Color(0xFF34D399),
+        fill: 1,
+        size: 21,
+      ),
+      _Status.failed => Icon(
+        Symbols.cancel_rounded,
+        color: scheme.error,
+        fill: 1,
+        size: 21,
+      ),
+      _Status.skipped => Icon(
+        Symbols.do_not_disturb_on_rounded,
+        color: scheme.outline,
+        size: 21,
+      ),
     };
+    final active = row.status == _Status.running;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          icon,
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.label, style: theme.textTheme.bodyLarge),
-                if (row.message != null)
-                  Text(row.message!, style: theme.textTheme.bodySmall?.copyWith(color: scheme.error)),
-              ],
-            ),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: active
+              ? scheme.primary.withValues(alpha: 0.09)
+              : scheme.surfaceContainerHigh.withValues(alpha: 0.46),
+          border: Border.all(
+            color: active
+                ? scheme.primary.withValues(alpha: 0.45)
+                : scheme.outlineVariant.withValues(alpha: 0.65),
           ),
-        ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            icon,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (row.message != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        row.message!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.error,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1072,7 +1207,9 @@ class _InstallStepState extends State<_InstallStep> {
                       'then WARP and MASQUE accounts are registered.',
                 ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
+        _InstallProgress(rows: _rows.values.toList()),
+        const SizedBox(height: 14),
         if (accounts.length > 1 && !_started) ...[
           DropdownMenu<CfAccount>(
             initialSelection: _account,
@@ -1107,9 +1244,9 @@ class _InstallStepState extends State<_InstallStep> {
           Text(
             MiliLocale.t(
               'برخی مراحل به سرور نرسیدند. با یک VPN یا پروکسی دیگر دوباره تلاش کنید'
-                  '${offerTor ? '، یا با تور تلاش کنید' : ''}، یا فعلاً رد کنید و بعداً از تنظیمات کامل کنید.',
+                  '${offerTor ? '، یا با تور تلاش کنید' : ''}، یا فعلاً رد کنید و بعداً از تب ابزارها کامل کنید.',
               "Some steps couldn't reach the server. Connect through another VPN or proxy and retry"
-                  '${offerTor ? ', retry through Tor' : ''}, or skip them and finish later from Settings.',
+                  '${offerTor ? ', retry through Tor' : ''}, or skip them and finish later from Tools.',
             ),
             style: theme.textTheme.bodySmall,
           ),

@@ -2,12 +2,13 @@
 
 **One vibrant app. Multiple ways to stay connected — powered by MiliConfig & Xray-core.**
 
-MiliConfig VPN brings customizable Cloudflare Workers & Pages deployment, **VLESS**, **WARP**, **MASQUE**, **Serverless**, **Psiphon**, **Tor**, a **REAL** Cloudflare/WARP/MASQUE scanner, and **Mili Hub** (696 Clean IPs across 21 countries, 1-tap Fragment & WARP OBF presets, and live Mili Panel sync) together in a lively Neon AMOLED Android client.
+MiliConfig VPN brings customizable Cloudflare Workers & Pages deployment, **VLESS**, **WARP**, **MASQUE**, **Serverless**, **Psiphon**, **Tor**, a **REAL** Cloudflare/WARP/MASQUE scanner, **Mihomo (Clash.Meta)** subscriptions, and **Mili Hub** (696 Clean IPs across 21 countries, 1-tap Fragment & WARP OBF presets, and live Mili Panel sync) together in a lively Neon AMOLED Android client.
 
 ## Key Capabilities
 
 - **One-Tap Cloudflare Deployment:** Guided Setup Wizard deploys private Workers & Pages directly from the app using your own Cloudflare account (with Domain Fronting, ECH, and Tor fallback).
-- **Multi-Protocol Core:** Native Go Xray-core (`xray/`), Psiphon (`psiphon/`), Tor + lyrebird, WARP, MASQUE, and Serverless modes.
+- **Multi-Protocol Core:** Native Go Xray-core (`xray/`), Psiphon (`psiphon/`), Tor + lyrebird, WARP, MASQUE, Serverless, and an **independent Mihomo core** (`libmihomo-android`, mihomo v1.19.34) with its own TUN service, subscriptions, concurrent ping tests and node selection.
+- **Tools & Settings Hub:** every app setting, update check, and maintenance action lives inside the Tools tab; Mihomo has its own fifth tab and never touches the main Xray profile or state.
 - **Built-in REAL Scanner (`scanner/`):** Scan live Cloudflare IPs and WARP/MASQUE endpoints tuned to your ISP.
 - **Mili Hub Built-In:**
   - **696 Clean IP Pool (21 Countries):** Browse by country, lock a **Fixed IP**, or apply a random batch to VLESS Clean IPs in 1 tap.
@@ -43,12 +44,12 @@ Paste the contents of `release.p12.b64` into `KEYSTORE_BASE64`. Never commit `re
 
 ### Release checklist
 
-1. Bump `version` in `pubspec.yaml` (`2.2.3+13`: the number after `+` is the Android `versionCode` and must always increase).
+1. Bump `version` in `pubspec.yaml` (`2.3.0+14`: the number after `+` is the Android `versionCode` and must always increase).
 2. Update `RELEASE_NOTES.md`.
 3. Commit and push `main`.
 4. Tag the matching version and push the tag:
    ```bash
-   git tag v2.2.3 && git push origin v2.2.3
+   git tag v2.3.0 && git push origin v2.3.0
    ```
 5. GitHub Actions (`.github/workflows/release.yml`) builds `xray.aar`, `libpsiphon.so`, fetches Tor and Iran geo rules, minifies `worker/worker.js`, runs `flutter test`, and signs split + universal APKs.
 6. The workflow uploads `SIGNING_CERT.txt` next to the APKs. Record its `SHA-256` fingerprint and compare it on every later release; it must never change.
@@ -60,3 +61,5 @@ A build installed before v2.1.0 can still require one uninstall when moving to v
 ## License
 
 Licensed under [GNU GPL v3.0](LICENSE).
+
+The Mihomo core is provided by [libmihomo-android v0.3.14](https://github.com/oviron/libmihomo-android) (mihomo v1.19.34), pinned and SHA-256 verified during the Gradle build. It is GPL-3.0; upstream source is available at that repository and at [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo).

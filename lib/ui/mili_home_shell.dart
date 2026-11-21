@@ -24,6 +24,7 @@ import 'format.dart';
 import 'log_page.dart';
 import 'mili_bettbox_settings.dart';
 import 'mili_i18n.dart';
+import 'mihomo_page.dart';
 import 'mili_logo.dart';
 import 'mili_toolbox_page.dart';
 import 'region_picker.dart';
@@ -197,7 +198,8 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                             ),
                             1 => const _BettboxNodesTab(),
                             2 => const _MiliScannerTab(),
-                            _ => const MiliBettboxSettingsTab(),
+                            3 => const MiliBettboxSettingsTab(),
+                            _ => const MihomoPage(),
                           },
                         ),
                       ),
@@ -227,6 +229,10 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
             (
               icon: Symbols.tune_rounded,
               label: MiliLocale.t('ابزارها', 'Tools'),
+            ),
+            (
+              icon: Symbols.bolt_rounded,
+              label: MiliLocale.t('میهیمو', 'Mihomo'),
             ),
           ],
         ),

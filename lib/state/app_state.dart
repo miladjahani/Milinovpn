@@ -847,12 +847,8 @@ class AppState extends ChangeNotifier {
           }
         },
       );
-      if (!await VpnChannel.canInstallApk()) {
-        await VpnChannel.openInstallSettings();
-        throw StateError(
-          'Allow MiliConfig to install apps, then tap Install again.',
-        );
-      }
+      // Hand the update straight to the package installer. Existing installs are
+      // upgrades of the same signed package, so Android applies its normal update flow.
       final started = await VpnChannel.installApk(file.path);
       if (!started) {
         throw StateError("Android couldn't open the package installer.");

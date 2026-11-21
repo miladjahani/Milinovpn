@@ -1,9 +1,56 @@
+import java.net.URI
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Mihomo (Clash.Meta) is shipped as a pinned, checksum-verified AAR. It is not committed as
+// a binary: Gradle downloads it once into the build directory. The wrapper is GPL-3.0, like
+// this app, and exposes the native TUN/proxy core used by the independent Mihomo tab.
+val mihomoVersion = "0.3.14"
+val mihomoSha256 = "7c3a68a4ef9afcb5018e167dc70fba7485652d0a0e29ba006703cf00fed9e230"
+val mihomoAar = layout.buildDirectory.file("libs/libmihomo-android-v$mihomoVersion.aar")
+val downloadMihomo = tasks.register("downloadMihomo") {
+    description = "Downloads the pinned Mihomo Android AAR"
+    inputs.property("version", mihomoVersion)
+    inputs.property("sha256", mihomoSha256)
+    outputs.file(mihomoAar)
+    // Verify on every build; a cached file with the wrong bytes must never be packaged.
+    outputs.upToDateWhen { false }
+    doLast {
+        val target = mihomoAar.get().asFile
+        fun digest(file: java.io.File): String {
+            val md = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(1 shl 16)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    md.update(buffer, 0, read)
+                }
+            }
+            return md.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        }
+        if (target.isFile && digest(target) == mihomoSha256) return@doLast
+        target.parentFile.mkdirs()
+        val part = java.io.File(target.parentFile, "${target.name}.part")
+        val url = "https://github.com/oviron/libmihomo-android/releases/download/v$mihomoVersion/" +
+            "libmihomo-android-v$mihomoVersion.aar"
+        URI(url).toURL().openStream().use { input ->
+            part.outputStream().use { output -> input.copyTo(output) }
+        }
+        check(digest(part) == mihomoSha256) {
+            "Mihomo AAR checksum mismatch: ${digest(part)} (expected $mihomoSha256)"
+        }
+        if (!part.renameTo(target)) {
+            target.delete()
+            part.renameTo(target)
+        }
+    }
 }
 
 val keystoreProperties = Properties().apply {
@@ -78,6 +125,8 @@ android {
 dependencies {
     // Xray core, built from xray/ (scripts/build_xray.sh)
     implementation(files("libs/xray.aar"))
+    // Mihomo core (mihomo v1.19.34) for the independent fifth tab.
+    implementation(files(mihomoAar).builtBy(downloadMihomo))
     // FileProvider, for sharing exported settings files.
     implementation("androidx.core:core:1.13.1")
     testImplementation("junit:junit:4.13.2")

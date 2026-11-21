@@ -388,6 +388,7 @@ class BettboxFloatingNavBar extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isLight = theme.brightness == Brightness.light;
+    final compact = items.length > 4;
     final barBg = isLight
         ? Colors.white.withValues(alpha: 0.96)
         : scheme.surfaceContainerHigh.withValues(alpha: 0.94);
@@ -422,6 +423,7 @@ class BettboxFloatingNavBar extends StatelessWidget {
                   _NavPillItem(
                     icon: items[i].icon,
                     label: items[i].label,
+                    compact: compact,
                     selected: i == selectedIndex,
                     onTap: () {
                       if (i != selectedIndex) {
@@ -555,6 +557,7 @@ class _NavPillItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
+  final bool compact;
   final VoidCallback onTap;
 
   const _NavPillItem({
@@ -562,6 +565,7 @@ class _NavPillItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.compact = false,
   });
 
   @override
@@ -574,7 +578,7 @@ class _NavPillItem extends StatelessWidget {
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutCubic,
         padding: EdgeInsets.symmetric(
-          horizontal: selected ? 15 : 12,
+          horizontal: selected ? (compact ? 9 : 15) : (compact ? 6 : 12),
           vertical: 9,
         ),
         decoration: BoxDecoration(
@@ -586,7 +590,7 @@ class _NavPillItem extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: 21,
+              size: compact ? 19 : 21,
               color: selected ? scheme.primary : scheme.onSurfaceVariant,
             ),
             AnimatedSize(
@@ -594,11 +598,13 @@ class _NavPillItem extends StatelessWidget {
               curve: Curves.easeOutCubic,
               child: selected
                   ? Padding(
-                      padding: const EdgeInsetsDirectional.only(start: 7),
+                      padding: EdgeInsetsDirectional.only(
+                        start: compact ? 4 : 7,
+                      ),
                       child: Text(
                         label,
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: compact ? 10.5 : 12.5,
                           fontWeight: FontWeight.w700,
                           color: scheme.primary,
                         ),

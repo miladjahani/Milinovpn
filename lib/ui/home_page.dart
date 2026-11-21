@@ -10,7 +10,6 @@ import 'format.dart';
 import 'log_page.dart';
 import 'mili_hub_page.dart';
 import 'mili_logo.dart';
-import 'settings_page.dart';
 import 'theme.dart';
 import 'status_card.dart';
 
@@ -61,12 +60,6 @@ class HomePage extends StatelessWidget {
             onPressed: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const ConfigViewPage())),
-          ),
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Symbols.settings_rounded),
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const SettingsPage())),
           ),
         ],
       ),

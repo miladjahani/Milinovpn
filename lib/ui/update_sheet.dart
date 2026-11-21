@@ -175,8 +175,8 @@ class UpdateSheet extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   MiliLocale.t(
-                    'فایل APK داخل برنامه دانلود و سپس نصب می‌شود. داده‌های شما حفظ می‌شوند.',
-                    'The APK downloads inside the app and then opens Android’s installer. Your data is kept.',
+                    'فایل APK داخل برنامه دانلود و مستقیماً نصب می‌شود. داده‌ها و تنظیمات شما حفظ می‌شوند.',
+                    'The APK downloads and installs directly inside the app. Your data and settings are kept.',
                   ),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),

@@ -17,6 +17,7 @@ import 'per_app_page.dart';
 import 'routing_page.dart';
 import 'settings_page.dart';
 import 'tor_bridges_page.dart';
+import 'update_sheet.dart';
 
 /// Bettbox-style Tools & Settings Hub:
 /// Searchable settings bar, visual Theme Preview cards (7 Mili themes),
@@ -31,6 +32,7 @@ class MiliBettboxSettingsTab extends StatefulWidget {
 
 class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
   String _search = '';
+  bool _showSettings = false;
 
   bool _matches(String fa, String en, [String extra = '']) {
     if (_search.isEmpty) return true;
@@ -45,9 +47,29 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
     final state = AppScope.of(context);
     final p = state.profile;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 106),
+    return Column(
       children: [
+        _ToolsHeader(
+          showSettings: _showSettings,
+          onModeChanged: (settings) => setState(() => _showSettings = settings),
+        ),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: state.motionEnabled.value
+                ? const Duration(milliseconds: 220)
+                : Duration.zero,
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            child: _showSettings
+                ? const SettingsPage(key: ValueKey('settings'), embedded: true)
+                : ListView(
+                    key: const ValueKey('tools'),
+                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 106),
+                    children: [
+        _UpdateCard(state: state),
+        const SizedBox(height: 12),
         // Bettbox-style top search bar
         TextField(
           decoration: InputDecoration(
@@ -198,26 +220,44 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
         ),
         const SizedBox(height: 12),
 
-        // 4. Advanced Full Settings, Backup & Support
+        // 4. Support, version and in-app update are part of this hub; the update check
+        // lives at the top of the tab and the advanced settings are one tap away in the
+        // segmented header, not on a separate Settings page.
         BettboxTileCard(
-          title: MiliLocale.t('پیشرفته و پشتیبانی', 'Advanced & Support'),
-          icon: Symbols.settings_applications_rounded,
+          title: MiliLocale.t('پشتیبانی و برنامه', 'Support & App'),
+          icon: Symbols.support_agent_rounded,
           contentPadding: const EdgeInsets.only(bottom: 8),
           child: Column(
             children: [
               _BettboxRow(
-                icon: Symbols.tune_rounded,
-                title: MiliLocale.t(
-                  'همه تنظیمات ریز و تخصصی (VLESS / WARP / LAN / Export)',
-                  'All Granular Settings (VLESS / WARP / LAN / Export)',
-                ),
+                icon: Symbols.system_update_rounded,
+                title: MiliLocale.t('بررسی بروزرسانی', 'Check for updates'),
                 subtitle: MiliLocale.t(
-                  'دسترسی به تمام گزینه‌های تخصصی، MTU، ECH، Custom CDN و بکاپ',
-                  'Full access to MTU, ECH, Custom CDN, LAN sharing & backup',
+                  'آخرین نسخه را بگیرید و بدون خروج از برنامه نصب کنید',
+                  'Get the latest release and install it in-app',
                 ),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SettingsPage()),
-                ),
+                onTap: () async {
+                  try {
+                    final update = await state.checkForUpdate();
+                    if (!context.mounted) return;
+                    if (update == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            MiliLocale.t('شما آخرین نسخه را دارید', 'You are up to date'),
+                          ),
+                        ),
+                      );
+                    } else {
+                      await showUpdateSheet(context, update);
+                    }
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$e')),
+                    );
+                  }
+                },
               ),
               _BettboxRow(
                 icon: Symbols.support_agent_rounded,
@@ -236,7 +276,330 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
             ],
           ),
         ),
+                    ],
+                  ),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _ToolsHeader extends StatelessWidget {
+  final bool showSettings;
+  final ValueChanged<bool> onModeChanged;
+  const _ToolsHeader({
+    required this.showSettings,
+    required this.onModeChanged,
+  });
+
+  Future<void> _resetSettings(BuildContext context, AppState state) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(MiliLocale.t('بازنشانی تنظیمات؟', 'Reset settings?')),
+        content: Text(
+          MiliLocale.t(
+            'تنظیمات پروکسی به حالت پیش‌فرض برمی‌گردند. آی‌پی‌های سالم VLESS، اندپوینت‌های WARP/MASQUE و بریج‌های تور حفظ می‌شوند.',
+            'Proxy settings return to their defaults. VLESS Clean IPs, WARP and MASQUE '
+                'endpoints and Tor custom bridges are preserved.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(MiliLocale.t('انصراف', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(MiliLocale.t('بازنشانی', 'Reset')),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) state.resetSettings();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final state = AppScope.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: scheme.primary.withValues(alpha: 0.14),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.30),
+                  ),
+                ),
+                child: Icon(
+                  Symbols.tune_rounded,
+                  color: scheme.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      MiliLocale.t('ابزارها و تنظیمات', 'Tools & Settings'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      MiliLocale.t(
+                        'همه ابزارها، تنظیمات ریز، ظاهر و بروزرسانی در یک‌جا',
+                        'All tools, granular settings, appearance and updates in one place',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: MiliLocale.t('بازنشانی تنظیمات', 'Reset settings'),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _resetSettings(context, state),
+                icon: const Icon(Symbols.settings_backup_restore_rounded, size: 20),
+              ),
+              IconButton(
+                tooltip: MiliLocale.t('بروزرسانی', 'Update'),
+                visualDensity: VisualDensity.compact,
+                onPressed: () async {
+                  if (state.availableUpdate != null) {
+                    await showUpdateSheet(context, state.availableUpdate!);
+                    return;
+                  }
+                  try {
+                    final update = await state.checkForUpdate();
+                    if (!context.mounted) return;
+                    if (update == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            MiliLocale.t('شما آخرین نسخه را دارید', 'You are up to date'),
+                          ),
+                        ),
+                      );
+                    } else {
+                      await showUpdateSheet(context, update);
+                    }
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$e')),
+                    );
+                  }
+                },
+                icon: Badge(
+                  isLabelVisible: state.availableUpdate != null,
+                  child: const Icon(Symbols.system_update_rounded, size: 21),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 42,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHigh.withValues(alpha: 0.58),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                _ToolsModePill(
+                  icon: Symbols.grid_view_rounded,
+                  label: MiliLocale.t('جعبه‌ابزار', 'Toolbox'),
+                  selected: !showSettings,
+                  onTap: () => onModeChanged(false),
+                ),
+                _ToolsModePill(
+                  icon: Symbols.tune_rounded,
+                  label: MiliLocale.t('تنظیمات کامل', 'All settings'),
+                  selected: showSettings,
+                  onTap: () => onModeChanged(true),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolsModePill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ToolsModePill({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color: selected ? scheme.primaryContainer : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? scheme.primary : Colors.transparent,
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 17,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UpdateCard extends StatelessWidget {
+  final AppState state;
+  const _UpdateCard({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final update = state.availableUpdate;
+    final downloading = state.downloadingUpdate;
+    return BettboxTileCard(
+      title: MiliLocale.t('بروزرسانی برنامه', 'App update'),
+      icon: Symbols.system_update_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            update == null
+                ? MiliLocale.t(
+                    'آخرین نسخه را بررسی کنید؛ بروزرسانی داخل برنامه دانلود و نصب می‌شود.',
+                    'Check for the latest release; it downloads and installs inside the app.',
+                  )
+                : MiliLocale.t(
+                    'نسخه ${update.version} آماده است. با یک لمس نصب کنید.',
+                    'Version ${update.version} is ready. Install it with one tap.',
+                  ),
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12, height: 1.45),
+          ),
+          if (downloading) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: state.updateProgress > 0 ? state.updateProgress : null,
+                minHeight: 5,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: state.checkingUpdate || downloading
+                      ? null
+                      : () async {
+                          try {
+                            await state.checkForUpdate();
+                            if (!context.mounted) return;
+                            final found = state.availableUpdate;
+                            if (found == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    MiliLocale.t(
+                                      'شما آخرین نسخه را دارید',
+                                      'You are up to date',
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('$e')),
+                            );
+                          }
+                        },
+                  icon: state.checkingUpdate
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Symbols.refresh_rounded, size: 17),
+                  label: Text(MiliLocale.t('بررسی', 'Check')),
+                ),
+              ),
+              if (update != null) ...[
+                const SizedBox(width: 9),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: downloading
+                        ? null
+                        : () => showUpdateSheet(context, update),
+                    icon: const Icon(Symbols.download_rounded, size: 17),
+                    label: Text(MiliLocale.t('نصب', 'Install')),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
