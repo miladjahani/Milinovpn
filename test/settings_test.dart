@@ -447,6 +447,22 @@ void main() {
     expect(stored.dashboardCards, ['connection', 'toolbox']);
   });
 
+  test('motion and page transition choices survive a sparse round trip', () {
+    final device = const DeviceSettings()
+        .updated('ui.motion', false)
+        .updated('ui.pageTransition', 'zoom')
+        .updated('ui.mesh', false);
+    final stored = DeviceSettings.fromJson(device.toSparseJson());
+    expect(stored.motionEnabled, isFalse);
+    expect(stored.pageTransition, 'zoom');
+    expect(stored.meshBackground, isFalse);
+
+    final invalid = DeviceSettings.fromJson(
+      device.updated('ui.pageTransition', 'bogus').toJson(),
+    );
+    expect(invalid.pageTransition, 'fade');
+  });
+
   test('paths read and write nested values', () {
     final json = writePath({'a': 1}, 'b.c.d', true);
     expect(json, {

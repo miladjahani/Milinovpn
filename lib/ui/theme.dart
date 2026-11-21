@@ -23,10 +23,40 @@ RoundedSuperellipseBorder roundedShape(
 const kFieldGap = 16.0;
 const kRangeDashGap = 12.0;
 
+/// Used when the app-wide motion switch is off. Flutter still pushes the route, but the
+/// destination is shown immediately instead of animating a heavy page for ~300ms.
+class _NoPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _NoPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => child;
+}
+
+PageTransitionsTheme _pageTransitionsFor(String style, bool motionEnabled) {
+  final builder = !motionEnabled
+      ? const _NoPageTransitionsBuilder()
+      : switch (style) {
+          'zoom' => const ZoomPageTransitionsBuilder(),
+          'slide' => const CupertinoPageTransitionsBuilder(),
+          _ => const FadeForwardsPageTransitionsBuilder(),
+        };
+  return PageTransitionsTheme(
+    builders: {for (final platform in TargetPlatform.values) platform: builder},
+  );
+}
+
 ThemeData buildTheme(
   Brightness brightness,
   ThemeColor color, {
   String fontFamily = 'OpenSans',
+  String pageTransition = 'fade',
+  bool motionEnabled = true,
 }) {
   final isDark = brightness == Brightness.dark;
   final baseScheme = ColorScheme.fromSeed(
@@ -99,15 +129,7 @@ ThemeData buildTheme(
     useMaterial3: true,
     fontFamily: fontFamily == 'system' ? null : fontFamily,
     scaffoldBackgroundColor: isDark ? const Color(0xFF050507) : scheme.surface,
-    pageTransitionsTheme: const PageTransitionsTheme(
-      builders: {
-        TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
-        TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
-        TargetPlatform.linux: ZoomPageTransitionsBuilder(),
-        TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
-        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
-      },
-    ),
+    pageTransitionsTheme: _pageTransitionsFor(pageTransition, motionEnabled),
     appBarTheme: AppBarTheme(
       backgroundColor: isDark ? color.darkBg : scheme.surface,
       surfaceTintColor: Colors.transparent,

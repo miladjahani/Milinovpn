@@ -1189,6 +1189,15 @@ class DeviceSettings {
   /// the pencil in the dashboard app bar.
   final List<String> dashboardCards;
 
+  /// App-wide motion switch. When off, route/tab transitions and implicit animations are reduced.
+  final bool motionEnabled;
+
+  /// `fade`, `zoom`, or `slide`. Applied through [buildTheme]'s pageTransitionsTheme.
+  final String pageTransition;
+
+  /// Draws the Bento mesh backdrop. Turning it off leaves a flat surface for slower phones.
+  final bool meshBackground;
+
   static const defaultDashboardCards = [
     'connection',
     'speed',
@@ -1234,6 +1243,9 @@ class DeviceSettings {
     this.fontFamily = 'OpenSans',
     this.fontScale = 1.0,
     this.dashboardCards = defaultDashboardCards,
+    this.motionEnabled = true,
+    this.pageTransition = 'fade',
+    this.meshBackground = true,
     this.deployment = '',
     this.scanners = const {},
     this.setupDone = false,
@@ -1246,6 +1258,7 @@ class DeviceSettings {
     final connection = _map(j['connection']);
     final exit = _map(j['exit']);
     final theme = _map(j['theme']);
+    final ui = _map(j['ui']);
     final region = _str(exit['region'], d.exitRegion);
     final bridge = _str(connection['torBridge'], d.torBridge);
     // Older connection types that had a separate Fragment or WARP Pro mode.
@@ -1313,6 +1326,13 @@ class DeviceSettings {
         _map(j['dashboard'])['cards'],
         d.dashboardCards,
       ).where(defaultDashboardCards.contains).toList(),
+      motionEnabled: _bool(ui['motion'], d.motionEnabled),
+      pageTransition: _choice(
+        ui['pageTransition'],
+        const {'fade', 'zoom', 'slide'},
+        d.pageTransition,
+      ),
+      meshBackground: _bool(ui['mesh'], d.meshBackground),
       deployment: _str(j['deployment'], d.deployment),
       scanners: {
         for (final e in _map(j['scanners']).entries)
@@ -1357,6 +1377,11 @@ class DeviceSettings {
       'fontScale': fontScale,
     },
     'dashboard': {'cards': dashboardCards},
+    'ui': {
+      'motion': motionEnabled,
+      'pageTransition': pageTransition,
+      'mesh': meshBackground,
+    },
     'deployment': deployment,
     'scanners': scanners,
     'setupDone': setupDone,

@@ -14,6 +14,7 @@ import 'cf_accounts_page.dart';
 import 'chain_proxies_page.dart';
 import 'cloudflare_scanner_page.dart';
 import 'dns_page.dart';
+import 'interface_settings_page.dart';
 import 'mili_hub_page.dart';
 import 'mili_i18n.dart';
 import 'fragments_page.dart';
@@ -25,9 +26,38 @@ import 'routing_page.dart';
 import 'tor_bridges_page.dart';
 import 'update_sheet.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   final bool embedded;
   const SettingsPage({super.key, this.embedded = false});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  final _scroll = ScrollController();
+  final _workerKey = GlobalKey();
+  final _networkKey = GlobalKey();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _jumpTo(GlobalKey key) {
+    final target = key.currentContext;
+    if (target == null) return;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    Scrollable.ensureVisible(
+      target,
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      alignment: 0.04,
+    );
+  }
 
   static const fingerprints = {
     'chrome': 'Chrome',
@@ -54,8 +84,8 @@ class SettingsPage extends StatelessWidget {
     return ValueListenableBuilder<String>(
       valueListenable: MiliLocale.code,
       builder: (context, _, __) => Scaffold(
-      backgroundColor: embedded ? Colors.transparent : null,
-      appBar: embedded
+      backgroundColor: widget.embedded ? Colors.transparent : null,
+      appBar: widget.embedded
           ? null
           : AppBar(
         title: Text(MiliLocale.t('تنظیمات', 'Settings')),
@@ -91,9 +121,56 @@ class SettingsPage extends StatelessWidget {
         ],
       ),
       body: ListView(
+        controller: _scroll,
+        // Keep the worker/network jump targets mounted just below the fold without
+        // eagerly building the whole, very long settings page.
+        cacheExtent: 1400,
         padding: const EdgeInsets.only(bottom: 104),
         children: [
-          SectionHeader(MiliLocale.t('ابزارها و مرکز کنترل', 'Tools & Control Center')),
+          const SizedBox(height: 6),
+          _InterfaceEntryCard(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const InterfaceSettingsPage()),
+            ),
+          ),
+          SectionHeader(
+            MiliLocale.t('دسترسی سریع', 'Quick access'),
+            icon: Symbols.bolt_rounded,
+          ),
+          SettingsCard(
+            children: [
+              ListTile(
+                leading: const Icon(Symbols.deployed_code_rounded),
+                title: Text(
+                  MiliLocale.t('تنظیمات پیشرفته ورکر', 'Advanced worker settings'),
+                ),
+                subtitle: Text(
+                  MiliLocale.t(
+                    'VLESS · XHTTP · فرگمنت · CDN · ECH · Proxy IP · پورت‌ها',
+                    'VLESS · XHTTP · Fragments · CDN · ECH · Proxy IPs · Ports',
+                  ),
+                ),
+                trailing: const Icon(Symbols.south_rounded, size: 20),
+                onTap: () => _jumpTo(_workerKey),
+              ),
+              ListTile(
+                leading: const Icon(Symbols.lan_rounded),
+                title: Text(MiliLocale.t('شبکه و DNS', 'Network & DNS')),
+                subtitle: Text(
+                  MiliLocale.t(
+                    'DNS محلی، DNS فیک، IPv6، پروکسی LAN و MTU',
+                    'Local/fake DNS, IPv6, LAN proxy and MTU',
+                  ),
+                ),
+                trailing: const Icon(Symbols.south_rounded, size: 20),
+                onTap: () => _jumpTo(_networkKey),
+              ),
+            ],
+          ),
+          SectionHeader(
+            MiliLocale.t('ابزارها و مرکز کنترل', 'Tools & Control Center'),
+            icon: Symbols.hub_rounded,
+          ),
           SettingsCard(
             children: [
               ListTile(
@@ -107,7 +184,11 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
-          SectionHeader(MiliLocale.t('شبکه و DNS', 'Network & DNS')),
+          SectionHeader(
+            MiliLocale.t('شبکه و DNS', 'Network & DNS'),
+            key: _networkKey,
+            icon: Symbols.lan_rounded,
+          ),
           SettingsCard(
             children: [
               ListTile(
@@ -245,7 +326,14 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
 
-          SectionHeader(MiliLocale.t('اتصال · ورکر (VLESS / XHTTP / Shadowsocks)', 'Connection · Worker (VLESS / XHTTP / Shadowsocks)')),
+          SectionHeader(
+            MiliLocale.t(
+              'اتصال · ورکر (VLESS / XHTTP / Shadowsocks)',
+              'Connection · Worker (VLESS / XHTTP / Shadowsocks)',
+            ),
+            key: _workerKey,
+            icon: Symbols.deployed_code_rounded,
+          ),
           SettingsCard(
             children: [
               const _DeploymentTile(),
@@ -451,7 +539,10 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 16),
           SettingsCard(children: [const _CloudflareAccountsTile()]),
 
-          SectionHeader(MiliLocale.t('اتصال · MASQUE', 'Connection · MASQUE')),
+          SectionHeader(
+            MiliLocale.t('اتصال · MASQUE', 'Connection · MASQUE'),
+            icon: Symbols.waves_rounded,
+          ),
           SettingsCard(
             children: [
               TextPref(
@@ -559,7 +650,10 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 16),
           SettingsCard(children: [const _MasqueAccountTile()]),
 
-          SectionHeader(MiliLocale.t('اتصال · WARP', 'Connection · WARP')),
+          SectionHeader(
+            MiliLocale.t('اتصال · WARP', 'Connection · WARP'),
+            icon: Symbols.shield_rounded,
+          ),
           SettingsCard(
             children: [
               TextPref(
@@ -652,7 +746,10 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 16),
           SettingsCard(children: [const _WarpAccountTile()]),
 
-          SectionHeader(MiliLocale.t('اتصال · تور', 'Connection · Tor')),
+          SectionHeader(
+            MiliLocale.t('اتصال · تور', 'Connection · Tor'),
+            icon: Symbols.travel_explore_rounded,
+          ),
           SettingsCard(
             children: [
               ListTile(
@@ -680,7 +777,10 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
 
-          SectionHeader(MiliLocale.t('اتصال · سرورلس', 'Connection · Serverless')),
+          SectionHeader(
+            MiliLocale.t('اتصال · سرورلس', 'Connection · Serverless'),
+            icon: Symbols.cloud_off_rounded,
+          ),
           SettingsCard(
             children: [
               ListTile(
@@ -729,7 +829,10 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 16),
           SettingsCard(children: [const _MitmCaTile()]),
 
-          SectionHeader(MiliLocale.t('مسیریابی و قوانین', 'Routing & Rules')),
+          SectionHeader(
+            MiliLocale.t('مسیریابی و قوانین', 'Routing & Rules'),
+            icon: Symbols.alt_route_rounded,
+          ),
           SettingsCard(
             children: [
               ChoicePref(
@@ -773,7 +876,10 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
 
-          SectionHeader(MiliLocale.t('داده‌ها (ورود / خروج)', 'Data (Import / Export)')),
+          SectionHeader(
+            MiliLocale.t('داده‌ها (ورود / خروج)', 'Data (Import / Export)'),
+            icon: Symbols.import_export_rounded,
+          ),
           const SettingsCard(
             children: [
               _ExportSettingsTile(download: false),
@@ -782,18 +888,10 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
 
-          SectionHeader(MiliLocale.t('برنامه · ظاهر، زبان و تم', 'App · Appearance, Language & Theme')),
-          const SettingsCard(
-            children: [
-              _LanguageTile(),
-              _ThemeModeTile(),
-              _ThemeColorTile(),
-              _FontTile(),
-              _FontScaleTile(),
-            ],
+          SectionHeader(
+            MiliLocale.t('برنامه · درباره', 'App · About'),
+            icon: Symbols.info_rounded,
           ),
-
-          SectionHeader(MiliLocale.t('برنامه · درباره', 'App · About')),
           SettingsCard(
             children: [
               const _VersionTile(),
@@ -842,6 +940,127 @@ class SettingsPage extends StatelessWidget {
         ],
       ),
     ),
+    );
+  }
+}
+
+/// The prominent entry point for the full appearance, motion and transition studio.
+class _InterfaceEntryCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _InterfaceEntryCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(kCardRadius);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: Ink(
+            padding: const EdgeInsets.fromLTRB(16, 16, 13, 16),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              gradient: LinearGradient(
+                begin: AlignmentDirectional.topStart,
+                end: AlignmentDirectional.bottomEnd,
+                colors: [
+                  scheme.primary.withValues(alpha: 0.20),
+                  scheme.tertiary.withValues(alpha: 0.08),
+                ],
+              ),
+              border: Border.all(
+                color: scheme.primary.withValues(alpha: 0.38),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    color: scheme.primary.withValues(alpha: 0.18),
+                    border: Border.all(
+                      color: scheme.primary.withValues(alpha: 0.38),
+                    ),
+                  ),
+                  child: Icon(
+                    Symbols.palette_rounded,
+                    color: scheme.primary,
+                    size: 25,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              MiliLocale.t(
+                                'ظاهر، تم و حرکت',
+                                'Appearance, theme & motion',
+                              ),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15.5,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            child: Text(
+                              MiliLocale.t('کامل', 'NEW'),
+                              style: TextStyle(
+                                color: scheme.primary,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        MiliLocale.t(
+                          'پیش‌نمایش زنده · رنگ‌ها · فونت · انیمیشن · ترنزیشن صفحات',
+                          'Live preview · colors · font · motion · page transitions',
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 11.5,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Symbols.chevron_right_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

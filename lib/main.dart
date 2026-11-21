@@ -28,6 +28,9 @@ class MiliApp extends StatelessWidget {
           state.themeMode,
           state.fontFamily,
           state.fontScale,
+          state.motionEnabled,
+          state.pageTransition,
+          state.meshBackground,
           MiliLocale.code,
         ]),
         builder: (context, _) => MaterialApp(
@@ -42,6 +45,8 @@ class MiliApp extends StatelessWidget {
                 textScaler: TextScaler.linear(
                   systemScale * state.fontScale.value,
                 ),
+                disableAnimations:
+                    media.disableAnimations || !state.motionEnabled.value,
               ),
               child: Directionality(
                 textDirection: MiliLocale.direction,
@@ -56,11 +61,15 @@ class MiliApp extends StatelessWidget {
             Brightness.light,
             state.themeColor.value,
             fontFamily: state.fontFamily.value,
+            pageTransition: state.pageTransition.value,
+            motionEnabled: state.motionEnabled.value,
           ),
           darkTheme: buildTheme(
             Brightness.dark,
             state.themeColor.value,
             fontFamily: state.fontFamily.value,
+            pageTransition: state.pageTransition.value,
+            motionEnabled: state.motionEnabled.value,
           ),
           themeMode: state.themeMode.value,
           home: const _Root(),

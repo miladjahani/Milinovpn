@@ -130,6 +130,9 @@ class AppState extends ChangeNotifier {
   final themeMode = ValueNotifier(ThemeMode.dark);
   final fontFamily = ValueNotifier<String>('OpenSans');
   final fontScale = ValueNotifier<double>(1.0);
+  final motionEnabled = ValueNotifier<bool>(true);
+  final pageTransition = ValueNotifier<String>('fade');
+  final meshBackground = ValueNotifier<bool>(true);
 
   VpnStatus status = VpnStatus.disconnected;
   String? error;
@@ -341,6 +344,30 @@ class AppState extends ChangeNotifier {
   void setFontScale(double value) =>
       write('device.theme.fontScale', value.clamp(0.9, 1.3));
 
+  void setMotionEnabled(bool value) => write('device.ui.motion', value);
+
+  void setPageTransition(String value) {
+    if (!const {'fade', 'zoom', 'slide'}.contains(value)) return;
+    write('device.ui.pageTransition', value);
+  }
+
+  void setMeshBackground(bool value) => write('device.ui.mesh', value);
+
+  /// Restores the visual preferences without touching profiles, accounts or routing.
+  void resetAppearance() {
+    _setDevice(
+      device
+          .updated('theme.color', ThemeColor.neon.name)
+          .updated('theme.mode', ThemeMode.dark.name)
+          .updated('theme.font', 'OpenSans')
+          .updated('theme.fontScale', 1.0)
+          .updated('ui.motion', true)
+          .updated('ui.pageTransition', 'fade')
+          .updated('ui.mesh', true),
+      reconnect: false,
+    );
+  }
+
   // endregion
 
   // region configs
@@ -441,6 +468,7 @@ class AppState extends ChangeNotifier {
         device.updated(path.substring(7), value),
         reconnect:
             !path.startsWith('device.theme.') &&
+            !path.startsWith('device.ui.') &&
             !path.startsWith('device.dashboard.'),
       );
     } else if (path.startsWith('vless.')) {
@@ -505,6 +533,9 @@ class AppState extends ChangeNotifier {
         ThemeMode.values.asNameMap()[device.themeMode] ?? ThemeMode.dark;
     fontFamily.value = device.fontFamily;
     fontScale.value = device.fontScale;
+    motionEnabled.value = device.motionEnabled;
+    pageTransition.value = device.pageTransition;
+    meshBackground.value = device.meshBackground;
   }
 
   /// Defaults everywhere except the private parts and the configured clean IPs and endpoints.

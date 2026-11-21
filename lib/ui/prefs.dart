@@ -288,19 +288,30 @@ String? validateHttpsUrl(String v) {
 
 class SectionHeader extends StatelessWidget {
   final String title;
-  const SectionHeader(this.title, {super.key});
+  final IconData? icon;
+  const SectionHeader(this.title, {this.icon, super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(28, 20, 20, 8),
-      child: Text(
-        title,
-        style: theme.textTheme.titleSmall?.copyWith(
-          color: theme.colorScheme.primary,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 15, color: theme.colorScheme.primary),
+            const SizedBox(width: 7),
+          ],
+          Flexible(
+            child: Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

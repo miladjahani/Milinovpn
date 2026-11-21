@@ -159,15 +159,17 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
             return Stack(
               children: [
                 Positioned.fill(
-                  child: BentoBackground(
-                    accent: scheme.primary,
-                    connected: state.isConnected,
-                    busy: state.isBusy,
-                    failed:
-                        state.status == VpnStatus.disconnected &&
-                        state.error != null,
-                    isLight: isLight,
-                  ),
+                  child: state.meshBackground.value
+                      ? BentoBackground(
+                          accent: scheme.primary,
+                          connected: state.isConnected,
+                          busy: state.isBusy,
+                          failed:
+                              state.status == VpnStatus.disconnected &&
+                              state.error != null,
+                          isLight: isLight,
+                        )
+                      : ColoredBox(color: scheme.surface),
                 ),
                 Positioned(
                   top: topInset,
@@ -179,7 +181,9 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                       width: width,
                       height: constraints.maxHeight - topInset,
                       child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 160),
+                        duration: state.motionEnabled.value
+                            ? const Duration(milliseconds: 160)
+                            : Duration.zero,
                         switchInCurve: Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
                         // Fade-only tab changes avoid transforming two complex pages every frame.
