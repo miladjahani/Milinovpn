@@ -243,10 +243,12 @@ class _StepBar extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   height: 3,
-                  borderRadius: BorderRadius.circular(99),
-                  color: i <= current
-                      ? scheme.primary
-                      : scheme.surfaceContainerHighest,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(99),
+                    color: i <= current
+                        ? scheme.primary
+                        : scheme.surfaceContainerHighest,
+                  ),
                 ),
               ),
             ),
