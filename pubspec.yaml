@@ -2,7 +2,7 @@ name: mili_vpn
 description: "MiliConfig — Multi-protocol VPN & Cloudflare Control Client."
 publish_to: "none"
 
-version: 2.2.2+12
+version: 2.2.3+13
 
 environment:
   sdk: ^3.13.5

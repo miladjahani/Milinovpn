@@ -952,7 +952,7 @@ class _InterfaceEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final radius = BorderRadius.circular(kCardRadius);
+    final radius = BorderRadius.circular(24);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Material(
