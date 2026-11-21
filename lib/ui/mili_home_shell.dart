@@ -72,7 +72,9 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isLight = theme.brightness == Brightness.light;
 
     return ValueListenableBuilder<String>(
       valueListenable: MiliLocale.code,
@@ -164,6 +166,7 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                     failed:
                         state.status == VpnStatus.disconnected &&
                         state.error != null,
+                    isLight: isLight,
                   ),
                 ),
                 Positioned(
@@ -176,20 +179,13 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                       width: width,
                       height: constraints.maxHeight - topInset,
                       child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
+                        duration: const Duration(milliseconds: 160),
                         switchInCurve: Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, anim) => FadeTransition(
-                          opacity: anim,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.02),
-                              end: Offset.zero,
-                            ).animate(anim),
-                            child: child,
-                          ),
-                        ),
-                        child: KeyedSubtree(
+                        // Fade-only tab changes avoid transforming two complex pages every frame.
+                        transitionBuilder: (child, anim) =>
+                            FadeTransition(opacity: anim, child: child),
+                        child: RepaintBoundary(
                           key: ValueKey(_tab),
                           child: switch (_tab) {
                             0 => _BettboxDashboardTab(
@@ -257,14 +253,16 @@ class _BettboxDashboardTabState extends State<_BettboxDashboardTab> {
   @override
   void initState() {
     super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+    _ticker = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!mounted) return;
       final state = AppScope.read(context);
       final totalSpeed = (state.downSpeed + state.upSpeed).toDouble();
       _speedHistory.add(totalSpeed);
       if (_speedHistory.length > 24) _speedHistory.removeAt(0);
       _chartRev++;
-      if (state.isConnected || totalSpeed > 0 || _speedHistory.any((v) => v > 0)) {
+      if (state.isConnected ||
+          totalSpeed > 0 ||
+          _speedHistory.any((v) => v > 0)) {
         setState(() {});
       }
     });

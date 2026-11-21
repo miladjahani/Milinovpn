@@ -194,6 +194,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription<VpnStateEvent>? _stateSub;
   Timer? _trafficTimer;
   Timer? _lanTimer;
+  bool _trafficBusy = false;
 
   bool get isConnected => status == VpnStatus.connected;
   bool get isBusy =>
@@ -591,16 +592,23 @@ class AppState extends ChangeNotifier {
 
   void _startTrafficTimer() {
     _trafficTimer?.cancel();
-    _trafficTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+    _trafficBusy = false;
+    _trafficTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      if (_trafficBusy) return;
+      _trafficBusy = true;
       try {
         final t = await VpnChannel.traffic();
+        if (!isConnected) return;
         upSpeed = t.up;
         downSpeed = t.down;
         totalUp = t.totalUp;
         totalDown = t.totalDown;
-        notifyListeners();
+        // The dashboard has its own 2s ticker. Avoid rebuilding the whole app (all tabs and
+        // the shell) just to update two labels.
       } catch (_) {
         // Core stopping; ignore.
+      } finally {
+        _trafficBusy = false;
       }
     });
   }

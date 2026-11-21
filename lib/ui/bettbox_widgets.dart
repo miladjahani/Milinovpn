@@ -389,52 +389,48 @@ class BettboxFloatingNavBar extends StatelessWidget {
     final scheme = theme.colorScheme;
     final isLight = theme.brightness == Brightness.light;
     final barBg = isLight
-        ? Colors.white.withValues(alpha: 0.82)
-        : scheme.surfaceContainerHigh.withValues(alpha: 0.76);
+        ? Colors.white.withValues(alpha: 0.96)
+        : scheme.surfaceContainerHigh.withValues(alpha: 0.94);
 
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(
-              height: 62,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: barBg,
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(
-                  color: scheme.onSurface.withValues(alpha: 0.12),
-                  width: 0.9,
+        child: RepaintBoundary(
+          child: Container(
+            height: 62,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: barBg,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: scheme.onSurface.withValues(alpha: 0.12),
+                width: 0.9,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isLight ? 0.08 : 0.28),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isLight ? 0.10 : 0.40),
-                    blurRadius: 22,
-                    offset: const Offset(0, 7),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                for (int i = 0; i < items.length; i++)
+                  _NavPillItem(
+                    icon: items[i].icon,
+                    label: items[i].label,
+                    selected: i == selectedIndex,
+                    onTap: () {
+                      if (i != selectedIndex) {
+                        HapticFeedback.selectionClick();
+                        onChanged(i);
+                      }
+                    },
                   ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  for (int i = 0; i < items.length; i++)
-                    _NavPillItem(
-                      icon: items[i].icon,
-                      label: items[i].label,
-                      selected: i == selectedIndex,
-                      onTap: () {
-                        if (i != selectedIndex) {
-                          HapticFeedback.selectionClick();
-                          onChanged(i);
-                        }
-                      },
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
         ),
@@ -443,14 +439,16 @@ class BettboxFloatingNavBar extends StatelessWidget {
   }
 }
 
-/// A slow, state-aware mesh gradient behind the Bento content. It replaces flat black with
-/// three soft light fields (idle, connecting, connected, or error) without animating the cards
-/// themselves. RepaintBoundary keeps the per-second dashboard ticker from repainting it.
-class BentoBackground extends StatefulWidget {
+/// A static, state-aware mesh gradient behind the Bento content. It replaces flat black with
+/// three soft fields (idle, connecting, connected, or error) without a permanent animation
+/// ticker, so an idle screen costs no GPU frames. RepaintBoundary keeps scrolling and the
+/// dashboard's periodic ticker from repainting it.
+class BentoBackground extends StatelessWidget {
   final Color accent;
   final bool connected;
   final bool busy;
   final bool failed;
+  final bool isLight;
 
   const BentoBackground({
     super.key,
@@ -458,56 +456,27 @@ class BentoBackground extends StatefulWidget {
     this.connected = false,
     this.busy = false,
     this.failed = false,
+    this.isLight = false,
   });
 
   @override
-  State<BentoBackground> createState() => _BentoBackgroundState();
-}
-
-class _BentoBackgroundState extends State<BentoBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 18),
-  );
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Respect reduced-motion settings: the mesh then stays calm instead of burning frames.
-    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-      _controller.stop();
-    } else if (!_controller.isAnimating) {
-      _controller.repeat();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final accent = widget.failed
+    final accentColor = failed
         ? Theme.of(context).colorScheme.error
-        : widget.connected
+        : connected
         ? const Color(0xFF34D399)
-        : widget.accent;
+        : accent;
     return IgnorePointer(
       child: RepaintBoundary(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) => CustomPaint(
-            painter: _BentoMeshPainter(
-              phase: reduceMotion ? 0.4 : _controller.value * math.pi * 2,
-              accent: accent,
-              intensity: widget.busy ? 1.25 : 1.0,
-            ),
-            size: Size.infinite,
+        // A static painter avoids a permanent 60fps ticker behind the whole app.
+        // State changes still repaint it; while the UI is idle it costs no frames.
+        child: CustomPaint(
+          painter: _BentoMeshPainter(
+            accent: accentColor,
+            intensity: busy ? 1.15 : 1.0,
+            isLight: isLight,
           ),
+          size: Size.infinite,
         ),
       ),
     );
@@ -515,14 +484,14 @@ class _BentoBackgroundState extends State<BentoBackground>
 }
 
 class _BentoMeshPainter extends CustomPainter {
-  final double phase;
   final Color accent;
   final double intensity;
+  final bool isLight;
 
   const _BentoMeshPainter({
-    required this.phase,
     required this.accent,
     required this.intensity,
+    required this.isLight,
   });
 
   @override
@@ -531,10 +500,12 @@ class _BentoMeshPainter extends CustomPainter {
     canvas.drawRect(
       rect,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF070A10), Color(0xFF040507), Color(0xFF080510)],
+          colors: isLight
+              ? const [Color(0xFFF7F8FC), Color(0xFFEEF1F7), Color(0xFFF8F5FC)]
+              : const [Color(0xFF070A10), Color(0xFF040507), Color(0xFF080510)],
         ).createShader(rect),
     );
 
@@ -552,40 +523,32 @@ class _BentoMeshPainter extends CustomPainter {
 
     final w = size.width;
     final h = size.height;
+    final scale = isLight ? 0.58 : 1.0;
     blob(
-      Offset(
-        w * (0.18 + 0.08 * math.sin(phase)),
-        h * (0.16 + 0.05 * math.cos(phase * 0.8)),
-      ),
+      Offset(w * 0.18, h * 0.16),
       w * 0.72,
       accent,
-      0.11 * intensity,
+      0.11 * intensity * scale,
     );
     blob(
-      Offset(
-        w * (0.88 + 0.06 * math.cos(phase * 0.7)),
-        h * (0.48 + 0.08 * math.sin(phase * 0.6)),
-      ),
+      Offset(w * 0.88, h * 0.48),
       w * 0.60,
       const Color(0xFF8B5CF6),
-      0.065 * intensity,
+      0.065 * intensity * scale,
     );
     blob(
-      Offset(
-        w * (0.28 + 0.09 * math.cos(phase * 0.9)),
-        h * (0.92 + 0.04 * math.sin(phase * 0.5)),
-      ),
+      Offset(w * 0.28, h * 0.92),
       w * 0.66,
       const Color(0xFF0EA5E9),
-      0.045 * intensity,
+      0.045 * intensity * scale,
     );
   }
 
   @override
   bool shouldRepaint(_BentoMeshPainter oldDelegate) =>
-      oldDelegate.phase != phase ||
       oldDelegate.accent != accent ||
-      oldDelegate.intensity != intensity;
+      oldDelegate.intensity != intensity ||
+      oldDelegate.isLight != isLight;
 }
 
 class _NavPillItem extends StatelessWidget {
