@@ -2225,14 +2225,7 @@ Future<void> runQuickSetting(
       break;
     case 'routing':
       await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => RoutingPage(
-            title: MiliLocale.t('مسیریابی و عبور مستقیم', 'Routing & bypass'),
-            group: 'bypass',
-            labels: RoutingPage.bypassLabels,
-            domainHint: 'example.ir, geosite:ir',
-          ),
-        ),
+        MaterialPageRoute(builder: (_) => const RoutingHubPage()),
       );
       break;
     case 'dns':

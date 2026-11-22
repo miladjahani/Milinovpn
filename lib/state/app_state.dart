@@ -127,8 +127,8 @@ class AppState extends ChangeNotifier {
   /// App theme colour, light/dark mode, font and text scale. Separate notifiers so only the
   /// theme rebuilds when appearance changes.
   final themeColor = ValueNotifier(ThemeColor.neon);
-  final themeMode = ValueNotifier(ThemeMode.dark);
-  final fontFamily = ValueNotifier<String>('OpenSans');
+  final themeMode = ValueNotifier(ThemeMode.system);
+  final fontFamily = ValueNotifier<String>('system');
   final fontScale = ValueNotifier<double>(1.0);
   final motionEnabled = ValueNotifier<bool>(true);
   final pageTransition = ValueNotifier<String>('fade');
@@ -530,7 +530,7 @@ class AppState extends ChangeNotifier {
     LocalProxy.credentials = device.lanAuth;
     themeColor.value = ThemeColor.fromName(device.themeColor);
     themeMode.value =
-        ThemeMode.values.asNameMap()[device.themeMode] ?? ThemeMode.dark;
+        ThemeMode.values.asNameMap()[device.themeMode] ?? ThemeMode.system;
     fontFamily.value = device.fontFamily;
     fontScale.value = device.fontScale;
     motionEnabled.value = device.motionEnabled;

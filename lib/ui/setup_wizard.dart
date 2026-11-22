@@ -128,16 +128,26 @@ class _SetupWizardState extends State<SetupWizard> {
                           ),
                         ),
                         TextButton(
-                          onPressed: MiliLocale.toggle,
+                          onPressed: () {
+                            final index = MiliLocale.languages.indexWhere(
+                              (l) => l.code == MiliLocale.code.value,
+                            );
+                            final next =
+                                MiliLocale.languages[(index + 1) %
+                                    MiliLocale.languages.length];
+                            MiliLocale.setLang(next.code);
+                          },
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                            shape: const StadiumBorder(),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(13),
+                            ),
                           ),
                           child: Text(
-                            MiliLocale.isFa ? 'EN' : 'فارسی',
+                            MiliLocale.code.value.toUpperCase(),
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         ),

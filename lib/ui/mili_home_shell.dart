@@ -260,28 +260,6 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                         )
                       : ColoredBox(color: scheme.surface),
                 ),
-                // A soft fade under the compact blurred header: cards dissolving
-                // beneath it instead of meeting a hard cut line.
-                PositionedDirectional(
-                  top: topInset - 16,
-                  start: 0,
-                  end: 0,
-                  height: 22,
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            scheme.surface.withValues(alpha: 0.72),
-                            scheme.surface.withValues(alpha: 0),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
                 Positioned(
                   top: topInset,
                   left: 0,
@@ -328,6 +306,49 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                               onOpenScanner: () => setState(() => _tab = 1),
                             ),
                           },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // These scrims sit above the page, not behind it. The previous
+                // gradient was painted under an opaque ListView, so the fade was
+                // invisible. Keep both edges soft while the content scrolls.
+                Positioned(
+                  top: topInset - 8,
+                  left: 0,
+                  right: 0,
+                  height: 30,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            scheme.surface.withValues(alpha: 0.82),
+                            scheme.surface.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 86,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            scheme.surface.withValues(alpha: 0),
+                            scheme.surface.withValues(alpha: 0.88),
+                          ],
                         ),
                       ),
                     ),
@@ -1248,40 +1269,11 @@ class _BettboxNodesTabState extends State<_BettboxNodesTab> {
                 ),
             ],
           ),
-          if (state.exitNode == ExitNode.psiphon ||
-              state.exitNode == ExitNode.tor) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  Symbols.location_on_rounded,
-                  size: 17,
-                  color: scheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  MiliLocale.t('لوکیشن خروجی', 'Exit location'),
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const Spacer(),
-                BettboxChip(
-                  icon: Symbols.public_rounded,
-                  label: exitRegionLabel(state.device.exitRegion),
-                  active: true,
-                  onTap: state.isBusy
-                      ? null
-                      : () => _pickExitRegion(context, state),
-                ),
-              ],
-            ),
-          ],
             ],
           ),
         ),
+        const SizedBox(height: 12),
+        _ExitPathCard(state: state),
         const SizedBox(height: 12),
 
         // 4. Standalone node client: one chain proxy as the connection itself, without a worker.
@@ -1528,6 +1520,159 @@ class _NodeCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Where the current connection leaves the tunnel. Worker, WARP, MASQUE
+/// and Serverless can be combined with Psiphon, Tor or a chain proxy; the
+/// Psiphon and Tor types are exits themselves and only need a region.
+class _ExitPathCard extends StatelessWidget {
+  final AppState state;
+  const _ExitPathCard({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final mode = state.mode;
+    final exit = state.exitNode;
+    final busy = state.isBusy;
+    final fixedExit =
+        mode == ConnectionMode.psiphon || mode == ConnectionMode.tor;
+    final serverlessDns =
+        mode == ConnectionMode.serverless &&
+        state.serverlessMode == ServerlessMode.dns;
+    final choices = switch (mode) {
+      ConnectionMode.psiphon || ConnectionMode.tor || ConnectionMode.node =>
+        const <ExitNode>[],
+      ConnectionMode.serverless => serverlessDns
+          ? const <ExitNode>[]
+          : [
+              ExitNode.worker,
+              ExitNode.psiphon,
+              if (state.serverlessMode == ServerlessMode.packet) ExitNode.tor,
+              if (state.usableChains.isNotEmpty) ExitNode.chain,
+            ],
+      _ => [
+          ExitNode.worker,
+          if (state.usableChains.isNotEmpty) ExitNode.chain,
+          ExitNode.psiphon,
+          ExitNode.tor,
+        ],
+    };
+    final regionExit = exit == ExitNode.psiphon || exit == ExitNode.tor;
+
+    String label(ExitNode node) => switch (node) {
+      ExitNode.worker => MiliLocale.t('مستقیم', 'Direct'),
+      ExitNode.chain => MiliLocale.t('زنجیره پروکسی', 'Chain proxy'),
+      ExitNode.psiphon => 'Psiphon',
+      ExitNode.tor => 'Tor',
+    };
+
+    IconData icon(ExitNode node) => switch (node) {
+      ExitNode.worker => Symbols.vpn_lock_rounded,
+      ExitNode.chain => Symbols.link_rounded,
+      ExitNode.psiphon => Symbols.hub_rounded,
+      ExitNode.tor => Symbols.travel_explore_rounded,
+    };
+
+    return BettboxTileCard(
+      title: MiliLocale.t('مسیر خروج', 'Exit path'),
+      icon: Symbols.alt_route_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            fixedExit
+                ? MiliLocale.t(
+                    'این نوع اتصال همیشه از ${label(exit)} خارج می‌شود. لوکیشن را جدا انتخاب کنید.',
+                    'This connection type always exits through ${label(exit)}. Pick its region below.',
+                  )
+                : serverlessDns
+                ? MiliLocale.t(
+                    'حالت DNS مستقیم است و مسیر خروج جداگانه ندارد.',
+                    'DNS mode is direct and has no separate exit path.',
+                  )
+                : mode == ConnectionMode.node
+                ? MiliLocale.t(
+                    'در حالت نود، خود نود مقصد نهایی است: ${state.nodeChain?.name ?? '—'}',
+                    'In Node mode the node is the final destination: ${state.nodeChain?.name ?? '—'}',
+                  )
+                : MiliLocale.t(
+                    'اتصال فعلی را با Psiphon، Tor یا زنجیره پروکسی ترکیب کنید. TCP و UDP تا حد امکان از مسیر انتخاب‌شده عبور می‌کنند.',
+                    'Combine the current connection with Psiphon, Tor or a chain proxy. TCP and UDP follow the selected path where supported.',
+                  ),
+            style: TextStyle(
+              fontSize: 10.5,
+              height: 1.5,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          if (choices.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                for (final node in choices)
+                  BettboxChip(
+                    icon: icon(node),
+                    label: label(node),
+                    active: exit == node,
+                    onTap: busy
+                        ? null
+                        : () => state.setExitNode(node),
+                  ),
+              ],
+            ),
+          ],
+          if (exit == ExitNode.chain && state.usableChains.isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                for (final chain in state.usableChains)
+                  BettboxChip(
+                    icon: Symbols.link_rounded,
+                    label: chain.name,
+                    active: state.exitChain?.id == chain.id,
+                    onTap: busy ? null : () => state.setExitChain(chain),
+                  ),
+              ],
+            ),
+          ],
+          if (regionExit) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(
+                  Symbols.location_on_rounded,
+                  size: 17,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    MiliLocale.t('لوکیشن خروجی', 'Exit location'),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                BettboxChip(
+                  icon: Symbols.public_rounded,
+                  label: exitRegionLabel(state.device.exitRegion),
+                  active: true,
+                  onTap: busy ? null : () => _pickExitRegion(context, state),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

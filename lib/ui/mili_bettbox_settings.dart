@@ -6,6 +6,7 @@ import '../models/theme_color.dart';
 import '../services/vpn_channel.dart';
 import '../services/xray_config.dart';
 import '../state/app_state.dart';
+import 'about_page.dart';
 import 'cf_accounts_page.dart';
 import 'chain_proxies_page.dart';
 import 'dns_page.dart';
@@ -53,22 +54,22 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
   List<_SettingsDestination> _destinations(AppState state) => [
     _SettingsDestination(
       icon: Symbols.deployed_code_rounded,
-      title: MiliLocale.t('Worker و اتصال', 'Worker & connection'),
+      title: MiliLocale.t('اتصال و شبکه', 'Connection & network'),
       subtitle: MiliLocale.t(
-        'پروتکل، دامنه، پورت، CDN و مسیر استقرار',
-        'Protocol, host, ports, CDN and deployment',
+        'پروتکل، پورت، CDN، WARP، MASQUE، DNS و MTU',
+        'Protocol, ports, CDN, WARP, MASQUE, DNS and MTU',
       ),
       keywords: 'worker vless xhttp trojan shadowsocks cdn ech port deployment اتصال ورکر',
       onTap: (context) => _openAdvanced(context, const SettingsPage()),
     ),
     _SettingsDestination(
       icon: Symbols.dns_rounded,
-      title: MiliLocale.t('شبکه و DNS', 'Network & DNS'),
+      title: MiliLocale.t('سرورهای DNS', 'DNS servers'),
       subtitle: MiliLocale.t(
-        'DoH، DNS محلی، IPv6، MTU و اشتراک LAN',
-        'DoH, local DNS, IPv6, MTU and LAN sharing',
+        'انتخاب DoH/DoQ، DNS محلی و سرورهای سفارشی',
+        'Choose DoH/DoQ, local DNS and custom servers',
       ),
-      keywords: 'dns doh doq ipv6 mtu lan network شبکه',
+      keywords: 'dns doh doq local servers سرور dns',
       onTap: (context) => _push(context, const DnsPage()),
     ),
     _SettingsDestination(
@@ -79,15 +80,7 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
         'Iran bypass, ad blocking and manual rules',
       ),
       keywords: 'routing bypass iran block ads rules مسیر ایران',
-      onTap: (context) => _push(
-        context,
-        RoutingPage(
-          title: MiliLocale.t('مسیریابی و عبور مستقیم', 'Routing & bypass'),
-          group: 'bypass',
-          labels: RoutingPage.bypassLabels,
-          domainHint: 'example.ir, geosite:ir',
-        ),
-      ),
+      onTap: (context) => _push(context, const RoutingHubPage()),
     ),
     _SettingsDestination(
       icon: Symbols.broken_image_rounded,
@@ -169,20 +162,6 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
       keywords: 'theme color font motion animation palette appearance ظاهر تم',
       onTap: (context) => _push(context, const InterfaceSettingsPage()),
     ),
-    _SettingsDestination(
-      icon: Symbols.support_agent_rounded,
-      title: MiliLocale.t('پشتیبانی', 'Support'),
-      subtitle: '@miliconfig · GNU GPL v3.0',
-      keywords: 'support telegram license about community پشتیبانی',
-      onTap: (context) async {
-        if (!await VpnChannel.openUrl('https://t.me/miliconfig') &&
-            context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('https://t.me/miliconfig')),
-          );
-        }
-      },
-    ),
   ];
 
   Future<void> _push(BuildContext context, Widget page) =>
@@ -229,15 +208,7 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
               },
             ),
             if (query.isEmpty) ...[
-              const SizedBox(height: 12),
-              _AppearanceCard(state: state),
-              const SizedBox(height: kBentoGap),
-              _QuickSettingsGrid(state: state),
-              const SizedBox(height: kBentoGap),
-              _ToolStrip(
-                onOpenScanner: widget.onOpenScanner,
-              ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 10),
               BentoSectionLabel(
                 MiliLocale.t('همه تنظیمات', 'All settings'),
                 icon: Symbols.grid_view_rounded,
@@ -263,20 +234,18 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
               MiliLocale.t('برنامه', 'App'),
               icon: Symbols.info_rounded,
             ),
-            _UpdateCard(state: state),
-            const SizedBox(height: kBentoGap),
             BentoSurface(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Column(
                 children: [
                   _AppRow(
-                    icon: Symbols.settings_suggest_rounded,
-                    title: MiliLocale.t('تنظیمات کامل و پیشرفته', 'Advanced settings'),
+                    icon: Symbols.info_rounded,
+                    title: MiliLocale.t('درباره و بروزرسانی', 'About & updates'),
                     subtitle: MiliLocale.t(
-                      'همه گزینه‌های اتصال در یک صفحه',
-                      'Every connection option in one page',
+                      'نسخه، هسته‌ها، کد منبع، پشتیبانی و مجوز',
+                      'Version, cores, source, support and license',
                     ),
-                    onTap: () => _push(context, const SettingsPage()),
+                    onTap: () => _push(context, const AboutPage()),
                   ),
                   Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.55)),
                   _AppRow(
@@ -297,17 +266,6 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
                       'Preview the generated connection JSON',
                     ),
                     onTap: () => _push(context, const ConfigViewPage()),
-                  ),
-                  Divider(
-                    height: 1,
-                    color: Theme.of(context).colorScheme.outlineVariant
-                        .withValues(alpha: 0.55),
-                  ),
-                  _AppRow(
-                    icon: Symbols.copyright_rounded,
-                    title: MiliLocale.t('مجوز متن‌باز', 'Open source license'),
-                    subtitle: 'GNU GPL v3.0',
-                    onTap: () => _push(context, const LicensePageView()),
                   ),
                   Divider(
                     height: 1,

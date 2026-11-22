@@ -396,22 +396,20 @@ class BettboxFloatingNavBar extends StatelessWidget {
             scheme.primary.withValues(alpha: 0.035),
             scheme.surfaceContainerHigh,
           ).withValues(alpha: 0.96);
-    final textDirection = Directionality.of(context);
-
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
         child: RepaintBoundary(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(20),
             child: BackdropFilter(
               filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
               child: Container(
-                height: 66,
+                height: 64,
                 decoration: BoxDecoration(
                   color: barBg,
-                  borderRadius: BorderRadius.circular(32),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: scheme.onSurface.withValues(alpha: 0.10),
                     width: 0.9,
@@ -429,26 +427,28 @@ class BettboxFloatingNavBar extends StatelessWidget {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     const inset = 7.0;
-                    final width = (constraints.maxWidth - inset * 2) / items.length;
-                    final visualIndex = textDirection == TextDirection.rtl
-                        ? items.length - 1 - selectedIndex
-                        : selectedIndex;
-                    final left = textDirection == TextDirection.rtl
-                        ? constraints.maxWidth - inset - width * (visualIndex + 1)
-                        : inset + width * visualIndex;
+                    final width = (constraints.maxWidth - inset * 2) /
+                        items.length;
                     return Stack(
                       children: [
-                        AnimatedPositioned(
-                          duration: const Duration(milliseconds: 460),
-                          curve: Curves.easeOutBack,
-                          left: left,
-                          top: 8,
+                        // PositionedDirectional follows the Row's text direction:
+                        // index 0 starts at the right in Persian/Arabic and at the
+                        // left in English. Flipping the index manually on top of
+                        // the Row's own RTL layout was the source of the moving
+                        // capsule landing on the wrong tab.
+                        AnimatedPositionedDirectional(
+                          duration: const Duration(milliseconds: 380),
+                          curve: Curves.easeOutCubic,
+                          start: inset + width * selectedIndex,
+                          top: 7,
                           width: width,
                           height: 50,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: scheme.primaryContainer.withValues(alpha: 0.88),
-                              borderRadius: BorderRadius.circular(23),
+                              color: scheme.primaryContainer.withValues(
+                                alpha: 0.88,
+                              ),
+                              borderRadius: BorderRadius.circular(15),
                               border: Border.all(
                                 color: scheme.primary.withValues(alpha: 0.22),
                               ),
@@ -658,11 +658,23 @@ class _NavPillItem extends StatelessWidget {
                     color: selected ? scheme.primary : scheme.onSurfaceVariant,
                   ),
                 ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutBack,
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  reverseDuration: const Duration(milliseconds: 160),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SizeTransition(
+                      sizeFactor: animation,
+                      axis: Axis.horizontal,
+                      axisAlignment: -1,
+                      child: child,
+                    ),
+                  ),
                   child: selected
                       ? Padding(
+                          key: ValueKey('nav-label-$label'),
                           padding: const EdgeInsetsDirectional.only(start: 6),
                           child: Text(
                             label,
@@ -675,7 +687,7 @@ class _NavPillItem extends StatelessWidget {
                             ),
                           ),
                         )
-                      : const SizedBox.shrink(),
+                      : const SizedBox(key: ValueKey('nav-label-empty')),
                 ),
               ],
             ),

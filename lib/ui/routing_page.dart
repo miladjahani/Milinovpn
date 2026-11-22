@@ -4,6 +4,179 @@ import 'expressive.dart';
 import 'mili_i18n.dart';
 import 'prefs.dart';
 
+/// The single routing destination: choose bypass, sanction or block rules.
+class RoutingHubPage extends StatelessWidget {
+  const RoutingHubPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ValueListenableBuilder<String>(
+      valueListenable: MiliLocale.code,
+      builder: (context, _, __) => Scaffold(
+        appBar: ExpressiveSubpageHeader(
+          title: MiliLocale.t('مسیریابی و قوانین', 'Routing & rules'),
+          subtitle: MiliLocale.t(
+            'عبور مستقیم، قوانین تحریم و مسدودسازی',
+            'Direct routes, sanctions and blocking',
+          ),
+        ),
+        body: ExpressivePageBackdrop(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+            children: [
+              BentoSurface(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                child: Column(
+                  children: [
+                    _RoutingEntry(
+                      icon: Icons.alt_route_rounded,
+                      color: scheme.primary,
+                      title: MiliLocale.t('عبور مستقیم', 'Bypass'),
+                      subtitle: MiliLocale.t(
+                        'ایران، چین، روسیه، بیت‌تورنت و دامنه‌های دلخواه',
+                        'Iran, China, Russia, BitTorrent and custom domains',
+                      ),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => RoutingPage(
+                            title: MiliLocale.t(
+                              'مسیریابی و عبور مستقیم',
+                              'Routing & bypass',
+                            ),
+                            group: 'bypass',
+                            labels: RoutingPage.bypassLabels,
+                            domainHint: 'example.ir, geosite:ir',
+                          ),
+                        ),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      color: scheme.outlineVariant.withValues(alpha: 0.55),
+                    ),
+                    _RoutingEntry(
+                      icon: Icons.gpp_maybe_rounded,
+                      color: scheme.tertiary,
+                      title: MiliLocale.t('قوانین تحریم', 'Sanction rules'),
+                      subtitle: MiliLocale.t(
+                        'ChatGPT، هوش مصنوعی گوگل، مایکروسافت و سرویس‌های ابری',
+                        'ChatGPT, Google AIs, Microsoft and cloud services',
+                      ),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => RoutingPage(
+                            title: MiliLocale.t('قوانین تحریم', 'Sanction rules'),
+                            group: 'sanctionBypass',
+                            labels: RoutingPage.sanctionBypassLabels,
+                            domainHint: 'gemini.google.com',
+                            help: MiliLocale.t(
+                              RoutingPage.sanctionHelpFa,
+                              RoutingPage.sanctionHelp,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      color: scheme.outlineVariant.withValues(alpha: 0.55),
+                    ),
+                    _RoutingEntry(
+                      icon: Icons.block_rounded,
+                      color: scheme.error,
+                      title: MiliLocale.t('مسدودسازی', 'Blocking'),
+                      subtitle: MiliLocale.t(
+                        'تبلیغات، بدافزار، فیشینگ، ماینر و QUIC',
+                        'Ads, malware, phishing, miners and QUIC',
+                      ),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => RoutingPage(
+                            title: MiliLocale.t('قوانین مسدودسازی', 'Block rules'),
+                            group: 'block',
+                            labels: RoutingPage.blockLabels,
+                            domainHint: 'ads.example.com',
+                            ipHint: '10.10.34.34/24\n2001:4188:2:600:10:10:34:34/112',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoutingEntry extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _RoutingEntry({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(15),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Row(
+          children: [
+            BentoIcon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 1.35,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Directionality.of(context) == TextDirection.rtl
+                  ? Icons.chevron_left_rounded
+                  : Icons.chevron_right_rounded,
+              size: 19,
+              color: scheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// One routing group: its built-in presets (`routing.<group>.presets.<name>`), then its custom
 /// domains (`routing.<group>.domains`) and, unless [ipHint] is null, IPs (`routing.<group>.ips`).
 class RoutingPage extends StatelessWidget {

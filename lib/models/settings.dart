@@ -1201,11 +1201,42 @@ class DeviceSettings {
   /// Draws the Bento mesh backdrop. Turning it off leaves a flat surface for slower phones.
   final bool meshBackground;
 
-  static const defaultDashboardCards = [
+  /// Every widget that can be placed on the dashboard. The first block is
+  /// live/connection data; the second maps one-to-one to the settings and tool
+  /// destinations. Nothing here is a fixed six-card limit.
+  static const dashboardCardIds = [
     'connection',
     'speed',
     'quota',
     'network',
+    'quick',
+    'toolbox',
+    'cleanIps',
+    'proxyIps',
+    'placement',
+    'dns',
+    'routing',
+    'fragments',
+    'noises',
+    'perApp',
+    'chains',
+    'cloudflare',
+    'tor',
+    'appearance',
+    'scanner',
+    'logs',
+    'config',
+    'about',
+  ];
+
+  static const defaultDashboardCards = [
+    'connection',
+    'speed',
+    'quota',
+    'cleanIps',
+    'proxyIps',
+    'network',
+    'placement',
     'quick',
     'toolbox',
   ];
@@ -1217,6 +1248,22 @@ class DeviceSettings {
     'network': '1x1',
     'quick': '1x1',
     'toolbox': '2x1',
+    'cleanIps': '1x1',
+    'proxyIps': '1x1',
+    'placement': '2x1',
+    'dns': '1x1',
+    'routing': '1x1',
+    'fragments': '1x1',
+    'noises': '1x1',
+    'perApp': '1x1',
+    'chains': '1x1',
+    'cloudflare': '1x1',
+    'tor': '1x1',
+    'appearance': '1x1',
+    'scanner': '1x1',
+    'logs': '1x1',
+    'config': '1x1',
+    'about': '1x1',
   };
 
   static const dashboardSizeChoices = {'1x1', '2x1', '2x2'};
@@ -1253,8 +1300,9 @@ class DeviceSettings {
     this.exitChains = const {},
     this.exitRegion = '',
     this.themeColor = 'neon',
-    this.themeMode = 'dark',
-    this.fontFamily = 'OpenSans',
+    // New installs follow the phone's light/dark mode and system typeface.
+    this.themeMode = 'system',
+    this.fontFamily = 'system',
     this.fontScale = 1.0,
     this.dashboardCards = defaultDashboardCards,
     this.dashboardSizes = defaultDashboardSizes,
@@ -1342,11 +1390,11 @@ class DeviceSettings {
       dashboardCards: _strList(
         dashboard['cards'],
         d.dashboardCards,
-      ).where(defaultDashboardCards.contains).toList(),
+      ).where(dashboardCardIds.contains).toList(),
       dashboardSizes: {
         ...d.dashboardSizes,
         for (final e in dashboardSizes.entries)
-          if (defaultDashboardCards.contains(e.key) &&
+          if (dashboardCardIds.contains(e.key) &&
               dashboardSizeChoices.contains('${e.value}'))
             e.key: '${e.value}',
       },

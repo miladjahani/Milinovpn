@@ -447,6 +447,34 @@ void main() {
     expect(stored.dashboardCards, ['connection', 'toolbox']);
   });
 
+  test('every settings and tool page can be stored as a dashboard card', () {
+    final wanted = [
+      'connection',
+      'cleanIps',
+      'proxyIps',
+      'placement',
+      'dns',
+      'routing',
+      'perApp',
+      'chains',
+      'cloudflare',
+      'tor',
+      'appearance',
+      'scanner',
+      'logs',
+      'config',
+      'about',
+    ];
+    final device = const DeviceSettings().updated('dashboard.cards', [
+      ...wanted,
+      'not-a-card',
+    ]);
+    final stored = DeviceSettings.fromJson(device.toSparseJson());
+    expect(stored.dashboardCards, wanted);
+    expect(stored.dashboardSizes['placement'], '2x1');
+    expect(stored.dashboardSizes['dns'], '1x1');
+  });
+
   test('motion and page transition choices survive a sparse round trip', () {
     final device = const DeviceSettings()
         .updated('ui.motion', false)

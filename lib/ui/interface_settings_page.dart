@@ -27,6 +27,12 @@ class InterfaceSettingsPage extends StatelessWidget {
     'amber': 'کهربایی',
     'rose': 'صورتی مرجانی',
     'slate': 'خاکستری گرافیتی',
+    'indigo': 'نیلی',
+    'crimson': 'قرمز یاقوتی',
+    'lime': 'لیمویی',
+    'sky': 'آبی یخی',
+    'sand': 'شنی',
+    'plum': 'بنفش سلطنتی',
   };
 
   String _colorName(ThemeColor color) =>
@@ -576,10 +582,10 @@ class _AccentPicker extends StatelessWidget {
                             duration: motion
                                 ? const Duration(milliseconds: 170)
                                 : Duration.zero,
-                            width: 40,
-                            height: 40,
+                            width: 44,
+                            height: 38,
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(13),
                               gradient: LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
@@ -985,72 +991,88 @@ class _LanguagePicker extends StatelessWidget {
           title: Text(MiliLocale.t('زبان برنامه', 'App language')),
           subtitle: Text(
             MiliLocale.t(
-              'رابط کاربری فارسی (راست‌به‌چپ) یا انگلیسی (چپ‌به‌راست).',
-              'Persian (RTL) or English (LTR) interface.',
+              'فارسی، انگلیسی، عربی، ترکی، روسی و چینی؛ جهت رابط خودکار تنظیم می‌شود.',
+              'Persian, English, Arabic, Turkish, Russian and Chinese; layout direction follows automatically.',
             ),
           ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-          child: Row(
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            childAspectRatio: 3.15,
             children: [
-              for (final lang in const ['fa', 'en'])
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: InkWell(
+              for (final lang in MiliLocale.languages)
+                InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => MiliLocale.setLang(lang.code),
+                  child: AnimatedContainer(
+                    duration: motion
+                        ? const Duration(milliseconds: 180)
+                        : Duration.zero,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: current == lang.code
+                          ? scheme.primaryContainer
+                          : scheme.surfaceContainerHigh.withValues(alpha: 0.34),
                       borderRadius: BorderRadius.circular(14),
-                      onTap: () => MiliLocale.setLang(lang),
-                      child: AnimatedContainer(
-                        duration: motion
-                            ? const Duration(milliseconds: 180)
-                            : Duration.zero,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 12,
+                      border: Border.all(
+                        color: current == lang.code
+                            ? scheme.primary
+                            : scheme.outlineVariant,
+                        width: current == lang.code ? 1.3 : 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          lang.flag,
+                          style: const TextStyle(fontSize: 17),
                         ),
-                        decoration: BoxDecoration(
-                          color: current == lang
-                              ? scheme.primaryContainer
-                              : scheme.surfaceContainerHigh.withValues(
-                                  alpha: 0.34,
-                                ),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: current == lang
-                                ? scheme.primary
-                                : scheme.outlineVariant,
-                            width: current == lang ? 1.3 : 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
-                              lang == 'fa' ? '🇮🇷' : '🇬🇧',
-                              style: const TextStyle(fontSize: 18),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                lang == 'fa' ? 'فارسی' : 'English',
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                lang.native,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.w700,
-                                  color: current == lang
+                                  color: current == lang.code
                                       ? scheme.onPrimaryContainer
                                       : scheme.onSurface,
                                 ),
                               ),
-                            ),
-                            if (current == lang)
-                              Icon(
-                                Symbols.check_circle_rounded,
-                                size: 18,
-                                color: scheme.primary,
+                              Text(
+                                lang.english,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  color: scheme.onSurfaceVariant,
+                                ),
                               ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                        if (current == lang.code)
+                          Icon(
+                            Symbols.check_circle_rounded,
+                            size: 16,
+                            color: scheme.primary,
+                          ),
+                      ],
                     ),
                   ),
                 ),

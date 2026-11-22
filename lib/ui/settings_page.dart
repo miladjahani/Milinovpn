@@ -11,20 +11,14 @@ import '../services/vpn_channel.dart';
 import '../services/xray_config.dart';
 import '../state/app_state.dart';
 import 'cf_accounts_page.dart';
-import 'chain_proxies_page.dart';
 import 'cloudflare_scanner_page.dart';
 import 'dns_page.dart';
 import 'expressive.dart';
-import 'interface_settings_page.dart';
-import 'mili_hub_page.dart';
 import 'mili_i18n.dart';
 import 'fragments_page.dart';
-import 'license_page.dart';
 import 'noises_page.dart';
-import 'per_app_page.dart';
 import 'prefs.dart';
 import 'routing_page.dart';
-import 'tor_bridges_page.dart';
 import 'update_sheet.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -89,10 +83,10 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: widget.embedded
           ? null
           : ExpressiveSubpageHeader(
-        title: MiliLocale.t('همه تنظیمات', 'All settings'),
+        title: MiliLocale.t('اتصال و شبکه', 'Connection & network'),
         subtitle: MiliLocale.t(
-          'کنترل دقیق اتصال، شبکه و امنیت',
-          'Fine control over connection, network and security',
+          'پروتکل ورکر، WARP، MASQUE، DNS، MTU و داده‌ها',
+          'Worker protocol, WARP, MASQUE, DNS, MTU and data',
         ),
         actions: [
           IconButton(
@@ -133,86 +127,12 @@ class _SettingsPageState extends State<SettingsPage> {
         cacheExtent: 1400,
         padding: const EdgeInsets.only(bottom: 104, top: 6),
         children: [
-          const SizedBox(height: 6),
-          _InterfaceEntryCard(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const InterfaceSettingsPage()),
-            ),
-          ),
-          SectionHeader(
-            MiliLocale.t('دسترسی سریع', 'Quick access'),
-            icon: Symbols.bolt_rounded,
-          ),
-          SettingsCard(
-            children: [
-              ListTile(
-                leading: const Icon(Symbols.deployed_code_rounded),
-                title: Text(
-                  MiliLocale.t('تنظیمات پیشرفته ورکر', 'Advanced worker settings'),
-                ),
-                subtitle: Text(
-                  MiliLocale.t(
-                    'VLESS · XHTTP · فرگمنت · CDN · ECH · Proxy IP · پورت‌ها',
-                    'VLESS · XHTTP · Fragments · CDN · ECH · Proxy IPs · Ports',
-                  ),
-                ),
-                trailing: const Icon(Symbols.south_rounded, size: 20),
-                onTap: () => _jumpTo(_workerKey),
-              ),
-              ListTile(
-                leading: const Icon(Symbols.lan_rounded),
-                title: Text(MiliLocale.t('شبکه و DNS', 'Network & DNS')),
-                subtitle: Text(
-                  MiliLocale.t(
-                    'DNS محلی، DNS فیک، IPv6، پروکسی LAN و MTU',
-                    'Local/fake DNS, IPv6, LAN proxy and MTU',
-                  ),
-                ),
-                trailing: const Icon(Symbols.south_rounded, size: 20),
-                onTap: () => _jumpTo(_networkKey),
-              ),
-            ],
-          ),
-          SectionHeader(
-            MiliLocale.t('ابزارها و مرکز کنترل', 'Tools & Control Center'),
-            icon: Symbols.hub_rounded,
-          ),
-          SettingsCard(
-            children: [
-              ListTile(
-                leading: Icon(Symbols.hub_rounded, color: Theme.of(context).colorScheme.primary),
-                title: Text(MiliLocale.t('Mili Hub · مخزن آی‌پی، پریست و همگام پنل', 'Mili Hub · IP pool, presets & panel sync')),
-                subtitle: Text(MiliLocale.t('مخزن آی‌پی سالم، پروفایل Fragment/WARP OBF و همگام‌سازی زنده پنل', 'Clean IP pool, Fragment/WARP OBF profiles & live panel sync')),
-                trailing: const Icon(Symbols.chevron_right_rounded),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const MiliHubPage()),
-                ),
-              ),
-            ],
-          ),
           SectionHeader(
             MiliLocale.t('شبکه و DNS', 'Network & DNS'),
             key: _networkKey,
             icon: Symbols.lan_rounded,
           ),
-          SettingsCard(
-            children: [
-              ListTile(
-                leading: const Icon(Symbols.link_rounded),
-                title: Text(MiliLocale.t('زنجیره پروکسی', 'Chain proxies')),
-                subtitle: Text(switch (p.chains.length) {
-                  0 => MiliLocale.t('وارد نشده', 'None added'),
-                  1 => MiliLocale.t('۱ کانفیگ', '1 config'),
-                  final n => MiliLocale.t('$n کانفیگ', '$n configs'),
-                }),
-                trailing: const Icon(Symbols.chevron_right_rounded),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ChainProxiesPage()),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           SettingsCard(
             children: [
               TextPref(
@@ -313,21 +233,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: Symbols.straighten_rounded,
                 min: 1280,
                 max: 9000,
-              ),
-              ListTile(
-                leading: const Icon(Symbols.apps_rounded),
-                title: Text(MiliLocale.t('پروکسی هر برنامه', 'Per-app proxy')),
-                subtitle: Text(switch (d.perAppMode) {
-                  PerAppMode.include =>
-                    MiliLocale.t('پروکسی برنامه‌های انتخابی (${d.perAppApps.length})', 'Proxy selected apps (${d.perAppApps.length})'),
-                  PerAppMode.exclude =>
-                    MiliLocale.t('استثنا کردن برنامه‌های انتخابی (${d.perAppApps.length})', 'Exclude selected apps (${d.perAppApps.length})'),
-                  PerAppMode.off => MiliLocale.t('پروکسی همه برنامه‌ها', 'Proxy all apps'),
-                }),
-                trailing: const Icon(Symbols.chevron_right_rounded),
-                onTap: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const PerAppPage())),
               ),
             ],
           ),
@@ -753,37 +658,6 @@ class _SettingsPageState extends State<SettingsPage> {
           SettingsCard(children: [const _WarpAccountTile()]),
 
           SectionHeader(
-            MiliLocale.t('اتصال · تور', 'Connection · Tor'),
-            icon: Symbols.travel_explore_rounded,
-          ),
-          SettingsCard(
-            children: [
-              ListTile(
-                leading: const Icon(Symbols.download_rounded),
-                title: Text(MiliLocale.t('دریافت بریج', 'Get bridges')),
-                subtitle: Text(MiliLocale.t('بریج‌های تازه از Tor', 'Fresh bridges from Tor')),
-                trailing: const Icon(Symbols.chevron_right_rounded),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TorBridgesPage()),
-                ),
-              ),
-              ListPref(
-                'tor.bridges',
-                MiliLocale.t('بریج‌های سفارشی', 'Custom bridges'),
-                icon: Symbols.list_arrow_rounded,
-                hint: 'webtunnel [2001:db8::1]:443 FINGERPRINT url=https://example.com/path ver=0.0.1',
-                help: MiliLocale.t(
-                  'در حالت بریج سفارشی Tor استفاده می‌شود. هر بریج در یک خط، مطابق bridges.torproject.org یا @GetBridgesBot.',
-                  'Used by the Tor Custom bridges mode. One bridge per line, as given by '
-                      'bridges.torproject.org or @GetBridgesBot (webtunnel, obfs4, snowflake).',
-                ),
-                itemValidator: validateBridge,
-                commaSeparated: false,
-              ),
-            ],
-          ),
-
-          SectionHeader(
             MiliLocale.t('اتصال · سرورلس', 'Connection · Serverless'),
             icon: Symbols.cloud_off_rounded,
           ),
@@ -836,53 +710,6 @@ class _SettingsPageState extends State<SettingsPage> {
           SettingsCard(children: [const _MitmCaTile()]),
 
           SectionHeader(
-            MiliLocale.t('مسیریابی و قوانین', 'Routing & Rules'),
-            icon: Symbols.alt_route_rounded,
-          ),
-          SettingsCard(
-            children: [
-              ChoicePref(
-                'routing.domainStrategy',
-                MiliLocale.t('استراتژی', 'Strategy'),
-                {
-                  'AsIs': MiliLocale.t('سرعت', 'Speed'),
-                  'IPIfNonMatch': MiliLocale.t('دقت', 'Accuracy'),
-                },
-                icon: Symbols.discover_tune_rounded,
-              ),
-              _RulesTile(
-                title: MiliLocale.t('قوانین عبور مستقیم', 'Bypass rules'),
-                icon: Symbols.alt_route_rounded,
-                group: 'bypass',
-                labels: RoutingPage.bypassLabels,
-                domainHint: 'example.ir',
-                ipHint:
-                    '10.0.0.1/24\n192.178.24.110\n2a00:1450:400e:808::200e/128',
-              ),
-              _RulesTile(
-                title: MiliLocale.t('قوانین تحریم', 'Sanction rules'),
-                icon: Symbols.alt_route_rounded,
-                group: 'sanctionBypass',
-                labels: RoutingPage.sanctionBypassLabels,
-                domainHint: 'gemini.google.com',
-                help: MiliLocale.t(
-                  RoutingPage.sanctionHelpFa,
-                  RoutingPage.sanctionHelp,
-                ),
-              ),
-              _RulesTile(
-                title: MiliLocale.t('قوانین مسدودسازی', 'Block rules'),
-                icon: Symbols.do_not_disturb_on_rounded,
-                group: 'block',
-                labels: RoutingPage.blockLabels,
-                domainHint: 'ads.example.com',
-                ipHint: '10.10.34.34/24\n2001:4188:2:600:10:10:34:34/112',
-              ),
-              _GeoAssetsTile(),
-            ],
-          ),
-
-          SectionHeader(
             MiliLocale.t('داده‌ها (ورود / خروج)', 'Data (Import / Export)'),
             icon: Symbols.import_export_rounded,
           ),
@@ -891,56 +718,6 @@ class _SettingsPageState extends State<SettingsPage> {
               _ExportSettingsTile(download: false),
               _ImportSettingsTile(),
               _ExportSettingsTile(download: true),
-            ],
-          ),
-
-          SectionHeader(
-            MiliLocale.t('برنامه · درباره', 'App · About'),
-            icon: Symbols.info_rounded,
-          ),
-          SettingsCard(
-            children: [
-              const _VersionTile(),
-              const _UpdateTile(),
-              ListTile(
-                leading: const Icon(Symbols.code_rounded),
-                title: Text(MiliLocale.t('کد منبع', 'Source code')),
-                subtitle: const Text(
-                  sourceCodeUrl,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: const Icon(Symbols.open_in_new_rounded, size: 20),
-                onTap: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  if (!await VpnChannel.openUrl(sourceCodeUrl)) {
-                    await Clipboard.setData(
-                      const ClipboardData(text: sourceCodeUrl),
-                    );
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(MiliLocale.t('لینک کپی شد', 'Link copied')),
-                      ),
-                    );
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Symbols.copyright_rounded),
-                title: Text(MiliLocale.t('مجوز متن‌باز', 'Open Source License')),
-                subtitle: const Text('GNU GPL v3.0'),
-                trailing: const Icon(Symbols.chevron_right_rounded),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const LicensePageView()),
-                ),
-              ),
-              ListTile(
-                leading: Icon(Symbols.support_agent_rounded, color: Theme.of(context).colorScheme.primary),
-                title: Text(MiliLocale.t('پشتیبانی و جامعه MiliConfig', 'MiliConfig Community & Support')),
-                subtitle: const Text('@miliconfig on Telegram'),
-                trailing: const Icon(Symbols.open_in_new_rounded),
-                onTap: () => VpnChannel.openUrl('https://t.me/miliconfig'),
-              ),
             ],
           ),
         ],

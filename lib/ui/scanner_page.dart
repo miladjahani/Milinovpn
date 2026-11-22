@@ -160,6 +160,22 @@ class _ExpressiveScannerTabState extends State<ExpressiveScannerTab> {
     setState(() => _scanning = false);
   }
 
+  Future<void> _pickCountry(MiliIpPoolData data) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (_) => _CountryScanSheet(
+        countries: data.countries,
+        selected: _selectedCountry,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedCountry = picked);
+    }
+  }
+
   Future<void> _scannerSettings() async {
     var port = _livePort;
     var sample = _liveSample;
@@ -354,7 +370,14 @@ class _ExpressiveScannerTabState extends State<ExpressiveScannerTab> {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
+            _CountryFilterBar(
+              countries: data?.countries ?? const [],
+              selected: _selectedCountry,
+              disabled: _scanning || data == null,
+              onTap: data == null ? null : () => _pickCountry(data),
+            ),
+            const SizedBox(height: 10),
             _LiveScanCard(
               scanning: _scanning,
               tested: _tested,
@@ -1107,6 +1130,265 @@ class _ProtocolTile extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountryFilterBar extends StatelessWidget {
+  final List<MiliCountryInfo> countries;
+  final String selected;
+  final bool disabled;
+  final VoidCallback? onTap;
+
+  const _CountryFilterBar({
+    required this.countries,
+    required this.selected,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final info = countries.where((country) => country.code == selected).firstOrNull;
+    final label = info == null
+        ? MiliLocale.t('همه کشورها', 'All countries')
+        : '${countryFlag(info.code)}  ${info.name}';
+    final detail = info == null
+        ? MiliLocale.t(
+            '${countries.length} کشور · اسکن و انتخاب آی‌پی به تفکیک کشور',
+            '${countries.length} countries · scan and pick IPs per country',
+          )
+        : MiliLocale.t(
+            '${info.count} آی‌پی در مخزن ${info.code}',
+            '${info.count} IPs in the ${info.code} pool',
+          );
+    return BentoSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+      onTap: disabled ? null : onTap,
+      child: Row(
+        children: [
+          BentoIcon(
+            Symbols.public_rounded,
+            color: selected.isEmpty ? scheme.onSurfaceVariant : scheme.primary,
+            filled: selected.isNotEmpty,
+            box: 38,
+            size: 19,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Directionality.of(context) == TextDirection.rtl
+                ? Symbols.chevron_left_rounded
+                : Symbols.chevron_right_rounded,
+            size: 19,
+            color: scheme.onSurfaceVariant,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountryScanSheet extends StatefulWidget {
+  final List<MiliCountryInfo> countries;
+  final String selected;
+
+  const _CountryScanSheet({
+    required this.countries,
+    required this.selected,
+  });
+
+  @override
+  State<_CountryScanSheet> createState() => _CountryScanSheetState();
+}
+
+class _CountryScanSheetState extends State<_CountryScanSheet> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _pick(String code) => Navigator.of(context).pop(code);
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final query = _query.trim().toLowerCase();
+    final filtered = widget.countries.where((country) {
+      if (query.isEmpty) return true;
+      return country.code.toLowerCase().contains(query) ||
+          country.name.toLowerCase().contains(query);
+    }).toList();
+
+    return FractionallySizedBox(
+      heightFactor: 0.82,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          18,
+          0,
+          18,
+          MediaQuery.viewInsetsOf(context).bottom + 18,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              MiliLocale.t('اسکن به تفکیک کشور', 'Scan by country'),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              MiliLocale.t(
+                'کشور را انتخاب کنید؛ اسکن زنده و انتخاب خودکار آی‌پی‌ها روی همان کشور اعمال می‌شود.',
+                'Pick a country; the live scan and one-tap IP picks use that pool.',
+              ),
+              style: TextStyle(
+                fontSize: 10.5,
+                height: 1.45,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            BentoSearchField(
+              controller: _search,
+              value: _query,
+              hint: MiliLocale.t('جستجوی کشور یا کد…', 'Search country or code…'),
+              onChanged: (value) => setState(() => _query = value),
+              onClear: () {
+                _search.clear();
+                setState(() => _query = '');
+              },
+            ),
+            const SizedBox(height: 9),
+            Expanded(
+              child: ListView.separated(
+                itemCount: filtered.length + (query.isEmpty ? 1 : 0),
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  if (query.isEmpty && index == 0) {
+                    return _CountryRow(
+                      flag: '🌐',
+                      title: MiliLocale.t('همه کشورها', 'All countries'),
+                      subtitle: MiliLocale.t(
+                        '${widget.countries.length} کشور · بدون فیلتر',
+                        '${widget.countries.length} countries · no filter',
+                      ),
+                      selected: widget.selected.isEmpty,
+                      onTap: () => _pick(''),
+                    );
+                  }
+                  final country =
+                      filtered[index - (query.isEmpty ? 1 : 0)];
+                  return _CountryRow(
+                    flag: countryFlag(country.code),
+                    title: country.name,
+                    subtitle: '${country.code} · ${country.count} IP',
+                    selected: widget.selected == country.code,
+                    onTap: () => _pick(country.code),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CountryRow extends StatelessWidget {
+  final String flag;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CountryRow({
+    required this.flag,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected
+          ? scheme.primaryContainer.withValues(alpha: 0.78)
+          : scheme.surfaceContainerHigh.withValues(alpha: 0.54),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Text(flag, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected)
+                Icon(Symbols.check_circle_rounded, size: 19, color: scheme.primary),
             ],
           ),
         ),

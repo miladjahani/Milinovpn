@@ -10,12 +10,24 @@ import '../services/my_ip.dart';
 import '../services/vpn_channel.dart';
 import '../services/xray_config.dart';
 import '../state/app_state.dart';
+import 'about_page.dart';
 import 'bettbox_widgets.dart';
 import 'cf_accounts_page.dart';
+import 'chain_proxies_page.dart';
+import 'config_view_page.dart';
 import 'dashboard_tools.dart';
+import 'dns_page.dart';
 import 'expressive.dart';
 import 'format.dart';
+import 'fragments_page.dart';
+import 'interface_settings_page.dart';
+import 'log_page.dart';
 import 'mili_i18n.dart';
+import 'noises_page.dart';
+import 'per_app_page.dart';
+import 'routing_page.dart';
+import 'settings_page.dart';
+import 'tor_bridges_page.dart';
 import 'update_sheet.dart';
 
 /// The expressive Bento dashboard.
@@ -241,7 +253,7 @@ class _ExpressiveDashboardTabState extends State<ExpressiveDashboardTab> {
     final busy = state.isBusy;
     final failed = state.status == VpnStatus.disconnected && state.error != null;
     final cards = state.device.dashboardCards;
-    final hidden = DeviceSettings.defaultDashboardCards
+    final hidden = DeviceSettings.dashboardCardIds
         .where((id) => !cards.contains(id))
         .toList();
 
@@ -401,8 +413,184 @@ class _ExpressiveDashboardTabState extends State<ExpressiveDashboardTab> {
         compact: compact,
         onOpenScanner: widget.onOpenScanner,
       ),
+      'cleanIps' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: MiliLocale.t(
+          '${state.vless.cleanIps.length} آی‌پی',
+          '${state.vless.cleanIps.length} IPs',
+        ),
+        detail: state.vless.cleanIps.isEmpty
+            ? MiliLocale.t('لیست خالی است', 'List is empty')
+            : state.vless.cleanIps.take(2).join(' · '),
+        onTap: widget.onOpenScanner,
+      ),
+      'proxyIps' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: MiliLocale.t(
+          '${state.vless.proxyIps.length} آی‌پی',
+          '${state.vless.proxyIps.length} IPs',
+        ),
+        detail: state.vless.proxyIps.isEmpty
+            ? MiliLocale.t('پیش‌فرض ورکر', 'Worker default')
+            : state.vless.proxyIps.take(2).join(' · '),
+        onTap: () => _openPage(const SettingsPage()),
+      ),
+      'placement' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: switch (state.vless.placement) {
+          'smart' => MiliLocale.t('هوشمند', 'Smart'),
+          'targeted' => MiliLocale.t('منطقه‌ای', 'Targeted'),
+          _ => MiliLocale.t('خودکار', 'Automatic'),
+        },
+        detail: state.vless.placement == 'targeted'
+            ? state.vless.placementRegion
+            : (state.device.deployment.isEmpty
+                  ? MiliLocale.t('بدون استقرار', 'No deployment')
+                  : state.device.deployment),
+        wide: true,
+        onTap: () => _openPage(const SettingsPage()),
+      ),
+      'dns' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: state.profile.general.localDns,
+        detail: state.profile.general.enableFakeDns
+            ? MiliLocale.t('DNS فیک روشن', 'Fake DNS on')
+            : state.profile.general.antiSanctionDns,
+        onTap: () => _openPage(const DnsPage()),
+      ),
+      'routing' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: MiliLocale.t(
+          '${_activeRules(state)} قانون',
+          '${_activeRules(state)} rules',
+        ),
+        detail: MiliLocale.t(
+          '${state.profile.routing.bypass.domains.length + state.profile.routing.block.domains.length} سفارشی',
+          '${state.profile.routing.bypass.domains.length + state.profile.routing.block.domains.length} custom',
+        ),
+        onTap: () => _openPage(const RoutingHubPage()),
+      ),
+      'fragments' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: MiliLocale.t(
+          '${state.profile.fragments.length} قطعه',
+          '${state.profile.fragments.length} pieces',
+        ),
+        detail: MiliLocale.t('تنظیم TCP', 'TCP tuning'),
+        onTap: () => _openPage(const FragmentsPage(section: 'serverless.')),
+      ),
+      'noises' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: MiliLocale.t(
+          '${state.profile.udpNoises.length} پروفایل',
+          '${state.profile.udpNoises.length} profiles',
+        ),
+        detail: MiliLocale.t('تنظیم UDP', 'UDP tuning'),
+        onTap: () => _openPage(const NoisesPage(section: 'serverless.')),
+      ),
+      'perApp' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: switch (state.device.perAppMode) {
+          PerAppMode.include => MiliLocale.t('انتخابی', 'Selected'),
+          PerAppMode.exclude => MiliLocale.t('استثنا', 'Excluded'),
+          PerAppMode.off => MiliLocale.t('همه برنامه‌ها', 'All apps'),
+        },
+        detail: MiliLocale.t(
+          '${state.device.perAppApps.length} برنامه',
+          '${state.device.perAppApps.length} apps',
+        ),
+        onTap: () => _openPage(const PerAppPage()),
+      ),
+      'chains' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: MiliLocale.t(
+          '${state.profile.chains.length} کانفیگ',
+          '${state.profile.chains.length} configs',
+        ),
+        detail: MiliLocale.t('خروج زنجیره‌ای', 'Chained exit'),
+        onTap: () => _openPage(const ChainProxiesPage()),
+      ),
+      'cloudflare' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: MiliLocale.t(
+          '${state.cfAccounts.length} حساب',
+          '${state.cfAccounts.length} accounts',
+        ),
+        detail: MiliLocale.t(
+          '${state.deployments.length} استقرار',
+          '${state.deployments.length} deployments',
+        ),
+        onTap: () => _openPage(const CfAccountsPage()),
+      ),
+      'tor' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: torBridges[state.device.torBridge] ?? 'Tor',
+        detail: state.profile.tor.bridges.isEmpty
+            ? MiliLocale.t('بریج سفارشی ندارید', 'No custom bridges')
+            : MiliLocale.t(
+                '${state.profile.tor.bridges.length} بریج',
+                '${state.profile.tor.bridges.length} bridges',
+              ),
+        onTap: () => _openPage(const TorBridgesPage()),
+      ),
+      'appearance' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: state.device.themeColor,
+        detail: '${state.device.themeMode} · ${state.device.fontFamily}',
+        onTap: () => _openPage(const InterfaceSettingsPage()),
+      ),
+      'scanner' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: MiliLocale.t('کشوری', 'By country'),
+        detail: MiliLocale.t('پینگ و Clean IP', 'Ping & Clean IP'),
+        onTap: widget.onOpenScanner,
+      ),
+      'logs' => _ShortcutCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        detail: MiliLocale.t('مشاهده خروجی هسته', 'View core output'),
+        onTap: () => _openPage(const LogPage()),
+      ),
+      'config' => _ShortcutCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        detail: MiliLocale.t('پیش‌نمایش JSON', 'Preview JSON'),
+        onTap: () => _openPage(const ConfigViewPage()),
+      ),
+      'about' => _ShortcutCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        detail: MiliLocale.t('نسخه و بروزرسانی', 'Version & updates'),
+        onTap: () => _openPage(const AboutPage()),
+      ),
       _ => const SizedBox.shrink(),
     };
+  }
+
+  int _activeRules(AppState state) {
+    final routing = state.profile.routing;
+    return routing.bypass.presets.values.where((v) => v).length +
+        routing.sanctionBypass.presets.values.where((v) => v).length +
+        routing.block.presets.values.where((v) => v).length;
+  }
+
+  void _openPage(Widget page) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => page));
   }
 
   Future<void> _showCardsSheet(BuildContext context, AppState state) async {
@@ -872,6 +1060,61 @@ class _HiddenCardSlot extends StatelessWidget {
     MiliLocale.t('جعبه‌ابزار', 'Toolbox'),
     Symbols.construction_rounded,
   ),
+  'cleanIps' => (
+    MiliLocale.t('کلین آی‌پی', 'Clean IPs'),
+    Symbols.verified_rounded,
+  ),
+  'proxyIps' => (
+    MiliLocale.t('پروکسی آی‌پی', 'Proxy IPs'),
+    Symbols.router_rounded,
+  ),
+  'placement' => (
+    MiliLocale.t('پلیسمنت ورکر', 'Worker placement'),
+    Symbols.public_rounded,
+  ),
+  'dns' => (MiliLocale.t('سرورهای DNS', 'DNS servers'), Symbols.dns_rounded),
+  'routing' => (
+    MiliLocale.t('مسیریابی و قوانین', 'Routing & rules'),
+    Symbols.alt_route_rounded,
+  ),
+  'fragments' => (
+    MiliLocale.t('فرگمنت TCP', 'TCP fragments'),
+    Symbols.view_week_rounded,
+  ),
+  'noises' => (
+    MiliLocale.t('مبهم‌سازی UDP', 'UDP obfuscation'),
+    Symbols.graphic_eq_rounded,
+  ),
+  'perApp' => (
+    MiliLocale.t('پروکسی هر برنامه', 'Per-app proxy'),
+    Symbols.apps_rounded,
+  ),
+  'chains' => (
+    MiliLocale.t('زنجیره پروکسی', 'Chain proxies'),
+    Symbols.link_rounded,
+  ),
+  'cloudflare' => (
+    MiliLocale.t('حساب‌های کلادفلر', 'Cloudflare accounts'),
+    Symbols.cloud_rounded,
+  ),
+  'tor' => (MiliLocale.t('پل تور', 'Tor bridges'), Symbols.travel_explore_rounded),
+  'appearance' => (
+    MiliLocale.t('ظاهر و تم', 'Appearance'),
+    Symbols.palette_rounded,
+  ),
+  'scanner' => (
+    MiliLocale.t('اسکنر شبکه', 'Network scanner'),
+    Symbols.radar_rounded,
+  ),
+  'logs' => (MiliLocale.t('لاگ زنده', 'Live logs'), Symbols.terminal_rounded),
+  'config' => (
+    MiliLocale.t('کانفیگ Xray', 'Xray config'),
+    Symbols.data_object_rounded,
+  ),
+  'about' => (
+    MiliLocale.t('درباره و بروزرسانی', 'About & updates'),
+    Symbols.info_rounded,
+  ),
   _ => (id, Symbols.dashboard_rounded),
 };
 
@@ -931,6 +1174,126 @@ class _DashboardCardFrame extends StatelessWidget {
           ),
           const SizedBox(height: 11),
           child,
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact data card for settings whose value is worth seeing on the board.
+class _InfoCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final String value;
+  final String detail;
+  final VoidCallback onTap;
+  final bool wide;
+
+  const _InfoCard({
+    required this.title,
+    required this.icon,
+    required this.value,
+    required this.detail,
+    required this.onTap,
+    this.wide = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return _DashboardCardFrame(
+      title: title,
+      icon: icon,
+      onTap: onTap,
+      action: Icon(
+        Directionality.of(context) == TextDirection.rtl
+            ? Symbols.chevron_left_rounded
+            : Symbols.chevron_right_rounded,
+        size: 17,
+        color: scheme.onSurfaceVariant,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: wide ? 20 : 17,
+              height: 1.15,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.35,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            detail,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 9.5,
+              height: 1.35,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact one-tap destination card for pages that have no headline value.
+class _ShortcutCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final String detail;
+  final VoidCallback onTap;
+
+  const _ShortcutCard({
+    required this.title,
+    required this.icon,
+    required this.detail,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return _DashboardCardFrame(
+      title: title,
+      icon: icon,
+      onTap: onTap,
+      action: Icon(
+        Symbols.arrow_outward_rounded,
+        size: 16,
+        color: scheme.primary,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            detail,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11.5,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            MiliLocale.t('باز کردن', 'Open'),
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              color: scheme.primary,
+            ),
+          ),
         ],
       ),
     );
@@ -1092,10 +1455,10 @@ class _ConnectionCard extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 260),
                   curve: Curves.easeOutBack,
-                  width: compact ? 54 : 64,
-                  height: compact ? 54 : 64,
+                  width: compact ? 56 : 66,
+                  height: compact ? 50 : 56,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(18),
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -1900,16 +2263,17 @@ class _DashboardCardsSheet extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               MiliLocale.t(
-                'برای چیدمان دلخواه، کارت‌ها را در حالت ویرایش بکشید.',
-                'Use edit mode to drag cards into your preferred layout.',
+                'هر تنظیم و ابزار می‌تواند کارت داشبورد شود؛ برای چیدمان، کارت‌ها را در حالت ویرایش بکشید.',
+                'Any setting or tool can become a dashboard card; drag cards in edit mode to arrange them.',
               ),
               style: TextStyle(
                 fontSize: 11,
+                height: 1.45,
                 color: scheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 12),
-            for (final id in DeviceSettings.defaultDashboardCards)
+            for (final id in DeviceSettings.dashboardCardIds)
               Padding(
                 padding: const EdgeInsets.only(bottom: 7),
                 child: BentoSurface(
