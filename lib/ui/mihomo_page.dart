@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/mihomo_profile.dart';
 import '../models/settings.dart';
+import '../services/vpn_channel.dart';
 import '../state/app_state.dart';
 import 'expressive.dart';
 import 'mili_i18n.dart';
