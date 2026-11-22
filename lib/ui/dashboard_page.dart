@@ -17,6 +17,7 @@ import 'chain_proxies_page.dart';
 import 'config_view_page.dart';
 import 'dashboard_tools.dart';
 import 'dns_page.dart';
+import 'engine_page.dart';
 import 'expressive.dart';
 import 'format.dart';
 import 'fragments_page.dart';
@@ -412,6 +413,18 @@ class _ExpressiveDashboardTabState extends State<ExpressiveDashboardTab> {
         state: state,
         compact: compact,
         onOpenScanner: widget.onOpenScanner,
+      ),
+      'engine' => _InfoCard(
+        title: _cardMeta(id).$1,
+        icon: _cardMeta(id).$2,
+        value: state.isMihomo ? 'Mihomo' : 'Xray',
+        detail: state.isMihomo
+            ? MiliLocale.t(
+                '${state.mihomoSubscriptions.length} اشتراک',
+                '${state.mihomoSubscriptions.length} subscriptions',
+              )
+            : MiliLocale.t('Worker · WARP · MASQUE', 'Worker · WARP · MASQUE'),
+        onTap: () => _openPage(const EngineSettingsPage()),
       ),
       'cleanIps' => _InfoCard(
         title: _cardMeta(id).$1,
@@ -1060,6 +1073,10 @@ class _HiddenCardSlot extends StatelessWidget {
     MiliLocale.t('جعبه‌ابزار', 'Toolbox'),
     Symbols.construction_rounded,
   ),
+  'engine' => (
+    MiliLocale.t('هسته اتصال', 'Connection engine'),
+    Symbols.memory_rounded,
+  ),
   'cleanIps' => (
     MiliLocale.t('کلین آی‌پی', 'Clean IPs'),
     Symbols.verified_rounded,
@@ -1326,17 +1343,24 @@ class _ConnectionCard extends StatelessWidget {
     final elapsed = state.connectedAt == null
         ? MiliLocale.t('آماده اتصال', 'Ready to connect')
         : formatDuration(DateTime.now().difference(state.connectedAt!));
-    final mode = state.mode == ConnectionMode.worker
+    final mode = state.isMihomo
+        ? 'Mihomo · ${state.mihomoSubscriptions.length} ${MiliLocale.t('اشتراک', 'subs')}'
+        : state.mode == ConnectionMode.worker
         ? '${modeName(state.mode)} · ${protocolLabel(state.device.workerProtocol)}'
         : modeName(state.mode);
+    void openEngine() => Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const EngineSettingsPage()),
+    );
 
     return BentoSurface(
       highlight: connected,
       accent: connected ? scheme.primary : null,
-      onTap: () => openCoreStatusSheet(
-        context,
-        onManageNodes: onManageNodes,
-      ),
+      onTap: state.isMihomo
+          ? openEngine
+          : () => openCoreStatusSheet(
+              context,
+              onManageNodes: onManageNodes,
+            ),
       padding: const EdgeInsets.all(17),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1356,7 +1380,9 @@ class _ConnectionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      MiliLocale.t('هسته و اتصال', 'Core & connection'),
+                      state.isMihomo
+                          ? MiliLocale.t('هسته Mihomo', 'Mihomo core')
+                          : MiliLocale.t('هسته و اتصال', 'Core & connection'),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -1381,10 +1407,12 @@ class _ConnectionCard extends StatelessWidget {
               ),
               IconButton(
                 tooltip: MiliLocale.t('وضعیت هسته', 'Core status'),
-                onPressed: () => openCoreStatusSheet(
-                  context,
-                  onManageNodes: onManageNodes,
-                ),
+                onPressed: state.isMihomo
+                    ? openEngine
+                    : () => openCoreStatusSheet(
+                        context,
+                        onManageNodes: onManageNodes,
+                      ),
                 icon: const Icon(Symbols.memory_rounded, size: 21),
               ),
             ],
@@ -1521,7 +1549,7 @@ class _ConnectionCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
-              onTap: onManageNodes,
+              onTap: state.isMihomo ? openEngine : onManageNodes,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(11, 9, 9, 9),
                 child: Row(
@@ -1537,7 +1565,9 @@ class _ConnectionCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            exitLabel(state),
+                            state.isMihomo
+                                ? MiliLocale.t('اشتراک‌های Mihomo', 'Mihomo subscriptions')
+                                : exitLabel(state),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -1546,7 +1576,9 @@ class _ConnectionCard extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '$mode · ${state.pingMs == null ? MiliLocale.t('پینگ نشده', 'Not tested') : '${state.pingMs} ms'}',
+                            state.isMihomo
+                                ? mode
+                                : '$mode · ${state.pingMs == null ? MiliLocale.t('پینگ نشده', 'Not tested') : '${state.pingMs} ms'}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -1558,7 +1590,9 @@ class _ConnectionCard extends StatelessWidget {
                       ),
                     ),
                     BentoTag(
-                      MiliLocale.t('تغییر نود', 'Change node'),
+                      state.isMihomo
+                          ? MiliLocale.t('مدیریت', 'Manage')
+                          : MiliLocale.t('تغییر نود', 'Change node'),
                       icon: Symbols.expand_more_rounded,
                     ),
                   ],

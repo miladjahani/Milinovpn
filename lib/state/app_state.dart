@@ -10,12 +10,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/cf_account.dart';
+import '../models/mihomo_profile.dart';
 import '../models/settings.dart';
 import '../models/theme_color.dart';
 import '../services/cloudflare_api.dart';
 import '../services/geo_assets.dart';
 import '../services/local_proxy.dart';
 import '../services/masque.dart';
+import '../services/mihomo_channel.dart';
 import '../services/mitm_ca.dart';
 import '../services/cloudflare_client.dart';
 import '../services/my_ip.dart';
@@ -34,6 +36,7 @@ class AppState extends ChangeNotifier {
   static const _kProfile = 'profile';
   static const _kDevice = 'device';
   static const _kSecretAccounts = 'cloudflareAccounts';
+  static const _kMihomoSubs = 'mihomoSubscriptions';
 
   late SharedPreferences _prefs;
   bool _ready = false;
@@ -54,6 +57,10 @@ class AppState extends ChangeNotifier {
   /// Cloudflare accounts saved on this device, each with the deployments this install made in
   /// it (secret: tokens and UUIDs).
   List<SavedCfAccount> cfAccounts = [];
+
+  /// The independent Mihomo engine's subscriptions. Kept encrypted like the
+  /// Cloudflare credentials because subscription URLs often carry tokens.
+  List<MihomoSubscription> mihomoSubscriptions = [];
 
   /// Every deployment of the accounts in use: those with both Workers and Pages deployed.
   List<({SavedCfAccount account, Deployment deployment})> get deployments => [
@@ -195,6 +202,7 @@ class AppState extends ChangeNotifier {
   String? usageError;
 
   StreamSubscription<VpnStateEvent>? _stateSub;
+  StreamSubscription<MihomoStateEvent>? _mihomoStateSub;
   Timer? _trafficTimer;
   Timer? _lanTimer;
   bool _trafficBusy = false;
@@ -202,6 +210,10 @@ class AppState extends ChangeNotifier {
   bool get isConnected => status == VpnStatus.connected;
   bool get isBusy =>
       status == VpnStatus.connecting || status == VpnStatus.disconnecting;
+
+  /// The selected core; both cores share the same connection card and status.
+  String get engine => device.engine;
+  bool get isMihomo => engine == 'mihomo';
 
   // region connection type
 
@@ -331,6 +343,47 @@ class AppState extends ChangeNotifier {
   void setTorBridge(String bridge) =>
       write('device.connection.torBridge', bridge);
 
+  /// Switches the main connection between the Xray and Mihomo cores. A live
+  /// session is stopped first so the two VPN services can never fight over TUN.
+  Future<void> setEngine(String value) async {
+    if (value == engine || !const {'xray', 'mihomo'}.contains(value)) return;
+    if (status != VpnStatus.disconnected) {
+      try {
+        if (isMihomo) {
+          await MihomoChannel.stop();
+        } else {
+          await VpnChannel.stop();
+        }
+      } catch (_) {
+        // The old service may already be gone; switching still proceeds.
+      }
+    }
+    status = VpnStatus.disconnected;
+    error = null;
+    connectedAt = null;
+    exitDetail = null;
+    upSpeed = downSpeed = totalUp = totalDown = 0;
+    needsReconnect = false;
+    _trafficTimer?.cancel();
+    write('device.engine', value);
+    notifyListeners();
+  }
+
+  /// Replaces the Mihomo subscription list (stored encrypted).
+  Future<void> saveMihomoSubscriptions(List<MihomoSubscription> items) async {
+    mihomoSubscriptions = List.unmodifiable(items);
+    notifyListeners();
+    try {
+      await _secrets.write(
+        key: _kMihomoSubs,
+        value: MihomoSubscription.encodeList(mihomoSubscriptions),
+      );
+    } catch (e) {
+      error = 'Mihomo subscriptions could not be saved: $e';
+      notifyListeners();
+    }
+  }
+
   void setThemeColor(ThemeColor value) =>
       write('device.theme.color', value.name);
 
@@ -409,9 +462,20 @@ class AppState extends ChangeNotifier {
     } catch (_) {
       // Unreadable secrets (e.g. restored from another device): set up again.
     }
+    try {
+      mihomoSubscriptions = MihomoSubscription.decodeList(
+        await _secrets.read(key: _kMihomoSubs),
+      );
+    } catch (_) {
+      // A locked keystore must not block the rest of the app.
+    }
     _applyDeviceSideEffects();
 
     _stateSub = VpnChannel.states.listen(_onVpnState);
+    _mihomoStateSub = MihomoChannel.states.listen(
+      _onMihomoState,
+      onError: (_) {},
+    );
     CloudflareClient.tunnelPort = () => isConnected ? LocalProxy.port : null;
     notifyListeners();
     _redeployDue();
@@ -436,6 +500,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _stateSub?.cancel();
+    _mihomoStateSub?.cancel();
     _trafficTimer?.cancel();
     _lanTimer?.cancel();
     super.dispose();
@@ -594,12 +659,45 @@ class AppState extends ChangeNotifier {
   // region VPN
 
   void _onVpnState(VpnStateEvent event) {
+    if (isMihomo) return;
+    _applyConnectionState(
+      event.status,
+      event.error,
+      event.connectedAt,
+      event.detail,
+    );
+  }
+
+  void _onMihomoState(MihomoStateEvent event) {
+    if (!isMihomo) return;
+    final next = switch (event.state) {
+      'connected' => VpnStatus.connected,
+      'connecting' => VpnStatus.connecting,
+      'disconnecting' => VpnStatus.disconnecting,
+      _ => VpnStatus.disconnected,
+    };
+    _applyConnectionState(
+      next,
+      event.error,
+      event.connectedAt > 0
+          ? DateTime.fromMillisecondsSinceEpoch(event.connectedAt)
+          : null,
+      event.remark,
+    );
+  }
+
+  void _applyConnectionState(
+    VpnStatus next,
+    String? nextError,
+    DateTime? nextConnectedAt,
+    String? detail,
+  ) {
     final wasConnected = status == VpnStatus.connected;
-    final sameSession = connectedAt != null && connectedAt == event.connectedAt;
-    status = event.status;
-    error = event.error;
-    connectedAt = event.connectedAt;
-    exitDetail = event.detail;
+    final sameSession = connectedAt != null && connectedAt == nextConnectedAt;
+    status = next;
+    error = nextError;
+    connectedAt = nextConnectedAt;
+    exitDetail = detail;
     if (status == VpnStatus.connected) {
       _startTrafficTimer();
       if (!wasConnected && !sameSession) {
@@ -628,12 +726,23 @@ class AppState extends ChangeNotifier {
       if (_trafficBusy) return;
       _trafficBusy = true;
       try {
-        final t = await VpnChannel.traffic();
-        if (!isConnected) return;
-        upSpeed = t.up;
-        downSpeed = t.down;
-        totalUp = t.totalUp;
-        totalDown = t.totalDown;
+        if (isMihomo) {
+          final rate = await MihomoChannel.traffic();
+          if (!isConnected) return;
+          final total = await MihomoChannel.totalTraffic();
+          if (!isConnected) return;
+          upSpeed = rate.up;
+          downSpeed = rate.down;
+          totalUp = total.up;
+          totalDown = total.down;
+        } else {
+          final t = await VpnChannel.traffic();
+          if (!isConnected) return;
+          upSpeed = t.up;
+          downSpeed = t.down;
+          totalUp = t.totalUp;
+          totalDown = t.totalDown;
+        }
         // The dashboard has its own 2s ticker. Avoid rebuilding the whole app (all tabs and
         // the shell) just to update two labels.
       } catch (_) {
@@ -653,6 +762,16 @@ class AppState extends ChangeNotifier {
     status = VpnStatus.connecting;
     notifyListeners();
     try {
+      if (isMihomo) {
+        if (mihomoSubscriptions.isEmpty) {
+          throw StateError('Add a Mihomo subscription first');
+        }
+        await MihomoChannel.setup(
+          MihomoConfigBuilder.build(mihomoSubscriptions),
+        );
+        await MihomoChannel.start();
+        return;
+      }
       if (!await VpnChannel.prepare(vpn: !proxyMode)) {
         throw StateError('VPN permission denied');
       }
@@ -680,9 +799,11 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> disconnect() => VpnChannel.stop();
+  Future<void> disconnect() =>
+      isMihomo ? MihomoChannel.stop() : VpnChannel.stop();
 
   Future<void> reconnect() async {
+    if (isMihomo) return connect();
     if (status == VpnStatus.disconnected) return connect();
     // Starting again replaces the running session in the service.
     needsReconnect = false;

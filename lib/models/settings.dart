@@ -1149,6 +1149,9 @@ class DeviceSettings {
   final String? lanUsername;
   final String? lanPassword;
 
+  /// The network core used for the main connection: `xray` or `mihomo`.
+  final String engine;
+
   /// Connection type name (see ConnectionMode) and its mode choices.
   final String connectionType;
 
@@ -1211,6 +1214,7 @@ class DeviceSettings {
     'network',
     'quick',
     'toolbox',
+    'engine',
     'cleanIps',
     'proxyIps',
     'placement',
@@ -1233,6 +1237,7 @@ class DeviceSettings {
     'connection',
     'speed',
     'quota',
+    'engine',
     'cleanIps',
     'proxyIps',
     'network',
@@ -1248,6 +1253,7 @@ class DeviceSettings {
     'network': '1x1',
     'quick': '1x1',
     'toolbox': '2x1',
+    'engine': '1x1',
     'cleanIps': '1x1',
     'proxyIps': '1x1',
     'placement': '2x1',
@@ -1288,6 +1294,7 @@ class DeviceSettings {
     this.lanSharing = false,
     this.lanUsername,
     this.lanPassword,
+    this.engine = 'xray',
     this.connectionType = 'worker',
     this.workerVariant = 'normal',
     this.workerProtocol = 'vless_ws',
@@ -1340,6 +1347,7 @@ class DeviceSettings {
       lanSharing: _bool(lan['enabled'], d.lanSharing),
       lanUsername: _strOrNull(lan['username']),
       lanPassword: _strOrNull(lan['password']),
+      engine: _choice(_str(j['engine'], d.engine), const {'xray', 'mihomo'}, d.engine),
       connectionType: switch (type) {
         'normal' || 'fragment' => 'worker',
         'warpPro' => 'warp',
@@ -1427,6 +1435,7 @@ class DeviceSettings {
       'username': lanUsername,
       'password': lanPassword,
     },
+    'engine': engine,
     'connection': {
       'type': connectionType,
       'workerVariant': workerVariant,

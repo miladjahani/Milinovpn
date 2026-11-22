@@ -10,6 +10,7 @@ import 'about_page.dart';
 import 'cf_accounts_page.dart';
 import 'chain_proxies_page.dart';
 import 'dns_page.dart';
+import 'engine_page.dart';
 import 'expressive.dart';
 import 'fragments_page.dart';
 import 'config_view_page.dart';
@@ -52,6 +53,16 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
   }
 
   List<_SettingsDestination> _destinations(AppState state) => [
+    _SettingsDestination(
+      icon: Symbols.memory_rounded,
+      title: MiliLocale.t('هسته اتصال', 'Connection engine'),
+      subtitle: MiliLocale.t(
+        'انتخاب Xray یا Mihomo و مدیریت اشتراک‌های Mihomo',
+        'Choose Xray or Mihomo and manage Mihomo subscriptions',
+      ),
+      keywords: 'engine core xray mihomo clash subscription هسته موتور',
+      onTap: (context) => _push(context, const EngineSettingsPage()),
+    ),
     _SettingsDestination(
       icon: Symbols.deployed_code_rounded,
       title: MiliLocale.t('اتصال و شبکه', 'Connection & network'),
