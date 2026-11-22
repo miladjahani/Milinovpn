@@ -30,6 +30,9 @@ jobs:
           mkdir -p assets/tor
           touch worker/worker.min.js
 
+      - name: Routing data for tests
+        run: bash scripts/fetch_geo.sh
+
       - name: Analyze (errors only)
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
