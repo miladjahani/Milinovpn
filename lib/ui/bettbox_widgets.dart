@@ -679,6 +679,7 @@ class _NavPillItem extends StatelessWidget {
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 AnimatedScale(
                   scale: selected ? 1.10 : 1,
@@ -701,7 +702,7 @@ class _NavPillItem extends StatelessWidget {
                     child: SizeTransition(
                       sizeFactor: animation,
                       axis: Axis.horizontal,
-                      axisAlignment: -1,
+                      axisAlignment: 0,
                       child: child,
                     ),
                   ),

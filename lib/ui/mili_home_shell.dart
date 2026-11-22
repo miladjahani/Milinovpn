@@ -21,6 +21,7 @@ import 'chain_proxies_page.dart';
 import 'cloudflare_scanner_page.dart';
 import 'dashboard_page.dart';
 import 'dashboard_tools.dart';
+import 'expressive.dart';
 import 'format.dart';
 import 'log_page.dart';
 import 'mili_bettbox_settings.dart';
@@ -33,7 +34,6 @@ import 'theme.dart';
 import 'update_sheet.dart';
 
 const _tabular = TextStyle(fontFeatures: [FontFeature.tabularFigures()]);
-const _headerHeight = 58.0;
 
 /// Psiphon and Tor use one shared exit location; changing it asks for a reconnect.
 Future<void> _pickExitRegion(BuildContext context, AppState state) async {
@@ -178,10 +178,9 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
         extendBody: true,
         extendBodyBehindAppBar: true,
         appBar: AppBar(
-          toolbarHeight: _headerHeight,
-          // The header paints its own fade in flexibleSpace below. An opaque
-          // AppBar background here was leaving the thin cut-off strip above the
-          // page even while the content scrolled underneath it.
+          toolbarHeight: kMiliHomeHeaderHeight,
+          // Keep the header completely transparent: no background, scrim or
+          // gradient. Only the title and actions float over the page.
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -197,25 +196,6 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
             systemNavigationBarIconBrightness: isLight
                 ? Brightness.dark
                 : Brightness.light,
-          ),
-          // Fade the header itself to transparent at its lower edge. There is no
-          // second scrim below it, so no thin band remains at the cut line.
-          flexibleSpace: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    scheme.surface,
-                    scheme.surface.withValues(alpha: 0.96),
-                    scheme.surface.withValues(alpha: 0.78),
-                    scheme.surface.withValues(alpha: 0),
-                  ],
-                  stops: const [0.0, 0.52, 0.78, 1.0],
-                ),
-              ),
-            ),
           ),
           titleSpacing: 16,
           title: Row(
@@ -259,7 +239,7 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
             final width = constraints.maxWidth > 920
                 ? 920.0
                 : constraints.maxWidth;
-            final topInset = MediaQuery.paddingOf(context).top + _headerHeight;
+            final topInset = miliHomeTopInset(context);
             return Stack(
               children: [
                 Positioned.fill(
@@ -277,52 +257,75 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                         )
                       : ColoredBox(color: scheme.surface),
                 ),
-                Positioned(
-                  top: topInset,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
+                // The header itself is fully transparent. The page is taller
+                // than its old clipped viewport and its top edge is masked with
+                // a soft alpha fade, so scrolling cards dissolve under the
+                // header instead of ending on a straight horizontal cut.
+                Positioned.fill(
                   child: Center(
                     child: SizedBox(
                       width: width,
-                      height: constraints.maxHeight - topInset,
-                      child: AnimatedSwitcher(
-                        duration: state.motionEnabled.value
-                            ? const Duration(milliseconds: 300)
-                            : Duration.zero,
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, anim) => FadeTransition(
-                          opacity: CurvedAnimation(
-                            parent: anim,
-                            curve: Curves.easeOutCubic,
-                          ),
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0.035, 0),
-                              end: Offset.zero,
-                            ).animate(
-                              CurvedAnimation(
-                                parent: anim,
-                                curve: Curves.easeOutBack,
+                      height: constraints.maxHeight,
+                      child: ShaderMask(
+                        blendMode: BlendMode.dstIn,
+                        shaderCallback: (rect) {
+                          final height = rect.height;
+                          final fadeStart = ((topInset - 22) / height)
+                              .clamp(0.0, 1.0)
+                              .toDouble();
+                          final fadeEnd = ((topInset + 8) / height)
+                              .clamp(0.0, 1.0)
+                              .toDouble();
+                          return LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: const [
+                              Colors.transparent,
+                              Colors.transparent,
+                              Colors.white,
+                              Colors.white,
+                            ],
+                            stops: [0.0, fadeStart, fadeEnd, 1.0],
+                          ).createShader(rect);
+                        },
+                        child: AnimatedSwitcher(
+                          duration: state.motionEnabled.value
+                              ? const Duration(milliseconds: 300)
+                              : Duration.zero,
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, anim) => FadeTransition(
+                            opacity: CurvedAnimation(
+                              parent: anim,
+                              curve: Curves.easeOutCubic,
+                            ),
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0.035, 0),
+                                end: Offset.zero,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: anim,
+                                  curve: Curves.easeOutBack,
+                                ),
                               ),
+                              child: child,
                             ),
-                            child: child,
                           ),
-                        ),
-                        child: RepaintBoundary(
-                          key: ValueKey(_tab),
-                          child: switch (_tab) {
-                            0 => ExpressiveDashboardTab(
-                              onOpenScanner: () => setState(() => _tab = 1),
-                              onOpenSettings: () => setState(() => _tab = 2),
-                              onManageNodes: () => _showNodeManager(context),
-                            ),
-                            1 => const ExpressiveScannerTab(),
-                            _ => MiliBettboxSettingsTab(
-                              onOpenScanner: () => setState(() => _tab = 1),
-                            ),
-                          },
+                          child: RepaintBoundary(
+                            key: ValueKey(_tab),
+                            child: switch (_tab) {
+                              0 => ExpressiveDashboardTab(
+                                onOpenScanner: () => setState(() => _tab = 1),
+                                onOpenSettings: () => setState(() => _tab = 2),
+                                onManageNodes: () => _showNodeManager(context),
+                              ),
+                              1 => const ExpressiveScannerTab(),
+                              _ => MiliBettboxSettingsTab(
+                                onOpenScanner: () => setState(() => _tab = 1),
+                              ),
+                            },
+                          ),
                         ),
                       ),
                     ),

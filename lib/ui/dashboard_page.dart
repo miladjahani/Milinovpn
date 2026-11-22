@@ -260,7 +260,12 @@ class _ExpressiveDashboardTabState extends State<ExpressiveDashboardTab> {
         .toList();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        miliHomeTopInset(context) + 8,
+        16,
+        108,
+      ),
       children: [
         const UpdateBanner(),
         if (state.needsReconnect)

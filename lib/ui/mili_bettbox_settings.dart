@@ -201,7 +201,12 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
               }).toList();
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            miliHomeTopInset(context) + 8,
+            16,
+            112,
+          ),
           children: [
             const _SettingsHero(),
             const SizedBox(height: 14),
