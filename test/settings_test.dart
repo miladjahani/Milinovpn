@@ -475,6 +475,13 @@ void main() {
     expect(stored.dashboardSizes['dns'], '1x1');
   });
 
+  test('the Xray/Mihomo engine choice survives a sparse round trip', () {
+    final device = const DeviceSettings().updated('engine', 'mihomo');
+    final stored = DeviceSettings.fromJson(device.toSparseJson());
+    expect(stored.engine, 'mihomo');
+    expect(const DeviceSettings().engine, 'xray');
+  });
+
   test('motion and page transition choices survive a sparse round trip', () {
     final device = const DeviceSettings()
         .updated('ui.motion', false)
