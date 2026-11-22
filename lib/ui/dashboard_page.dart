@@ -24,6 +24,7 @@ import 'fragments_page.dart';
 import 'interface_settings_page.dart';
 import 'log_page.dart';
 import 'mili_i18n.dart';
+import 'mili_toolbox_page.dart';
 import 'noises_page.dart';
 import 'per_app_page.dart';
 import 'routing_page.dart';
@@ -2116,6 +2117,9 @@ class _ToolboxCard extends StatelessWidget {
     return _DashboardCardFrame(
       title: MiliLocale.t('جعبه‌ابزار', 'Toolbox'),
       icon: Symbols.construction_rounded,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MiliToolboxPage()),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

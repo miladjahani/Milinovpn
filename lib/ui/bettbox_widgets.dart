@@ -391,36 +391,53 @@ class BettboxFloatingNavBar extends StatelessWidget {
     final scheme = theme.colorScheme;
     final isLight = theme.brightness == Brightness.light;
     final barBg = isLight
-        ? Colors.white.withValues(alpha: 0.94)
+        ? Colors.white.withValues(alpha: 0.82)
         : Color.alphaBlend(
-            scheme.primary.withValues(alpha: 0.035),
+            scheme.primary.withValues(alpha: 0.06),
             scheme.surfaceContainerHigh,
-          ).withValues(alpha: 0.96);
+          ).withValues(alpha: 0.82);
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
         child: RepaintBoundary(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(34),
             child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              filter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
               child: Container(
-                height: 64,
+                height: 68,
                 decoration: BoxDecoration(
-                  color: barBg,
-                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      barBg,
+                      Color.alphaBlend(
+                        scheme.primary.withValues(alpha: isLight ? 0.035 : 0.09),
+                        barBg,
+                      ),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(34),
                   border: Border.all(
-                    color: scheme.onSurface.withValues(alpha: 0.10),
-                    width: 0.9,
+                    color: scheme.onSurface.withValues(
+                      alpha: isLight ? 0.10 : 0.16,
+                    ),
+                    width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(
-                        alpha: isLight ? 0.07 : 0.26,
+                        alpha: isLight ? 0.10 : 0.34,
                       ),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
+                      blurRadius: 28,
+                      offset: const Offset(0, 10),
+                    ),
+                    BoxShadow(
+                      color: scheme.primary.withValues(alpha: 0.10),
+                      blurRadius: 20,
+                      spreadRadius: -4,
                     ),
                   ],
                 ),
@@ -437,21 +454,37 @@ class BettboxFloatingNavBar extends StatelessWidget {
                         // the Row's own RTL layout was the source of the moving
                         // capsule landing on the wrong tab.
                         AnimatedPositionedDirectional(
-                          duration: const Duration(milliseconds: 380),
+                          duration: const Duration(milliseconds: 420),
                           curve: Curves.easeOutCubic,
                           start: inset + width * selectedIndex,
                           top: 7,
                           width: width,
-                          height: 50,
+                          height: 54,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: scheme.primaryContainer.withValues(
-                                alpha: 0.88,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  scheme.primaryContainer.withValues(alpha: 0.98),
+                                  Color.alphaBlend(
+                                    scheme.primary.withValues(alpha: 0.16),
+                                    scheme.primaryContainer,
+                                  ).withValues(alpha: 0.92),
+                                ],
                               ),
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(27),
                               border: Border.all(
-                                color: scheme.primary.withValues(alpha: 0.22),
+                                color: scheme.primary.withValues(alpha: 0.28),
+                                width: 1.1,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: scheme.primary.withValues(alpha: 0.16),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -466,7 +499,7 @@ class BettboxFloatingNavBar extends StatelessWidget {
                                   selected: i == selectedIndex,
                                   onTap: () {
                                     if (i != selectedIndex) {
-                                      HapticFeedback.mediumImpact();
+                                      HapticFeedback.selectionClick();
                                       onChanged(i);
                                     }
                                   },
@@ -648,12 +681,12 @@ class _NavPillItem extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedScale(
-                  scale: selected ? 1.12 : 1,
-                  duration: const Duration(milliseconds: 540),
-                  curve: Curves.elasticOut,
+                  scale: selected ? 1.10 : 1,
+                  duration: const Duration(milliseconds: 380),
+                  curve: Curves.easeOutBack,
                   child: Icon(
                     icon,
-                    size: compact ? 19 : 21,
+                    size: selected ? 21 : 19,
                     fill: selected ? 1 : 0,
                     color: selected ? scheme.primary : scheme.onSurfaceVariant,
                   ),

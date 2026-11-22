@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -180,22 +179,40 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
         extendBodyBehindAppBar: true,
         appBar: AppBar(
           toolbarHeight: _headerHeight,
-          backgroundColor: scheme.surface.withValues(alpha: 0.70),
+          // The header paints its own fade in flexibleSpace below. An opaque
+          // AppBar background here was leaving the thin cut-off strip above the
+          // page even while the content scrolled underneath it.
+          backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
           scrolledUnderElevation: 0,
-          flexibleSpace: ClipRect(
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      scheme.surface.withValues(alpha: 0.88),
-                      scheme.surface.withValues(alpha: 0.58),
-                    ],
-                  ),
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarDividerColor: Colors.transparent,
+            statusBarIconBrightness: isLight
+                ? Brightness.dark
+                : Brightness.light,
+            systemNavigationBarIconBrightness: isLight
+                ? Brightness.dark
+                : Brightness.light,
+          ),
+          // Fade the header itself to transparent at its lower edge. There is no
+          // second scrim below it, so no thin band remains at the cut line.
+          flexibleSpace: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    scheme.surface,
+                    scheme.surface.withValues(alpha: 0.96),
+                    scheme.surface.withValues(alpha: 0.78),
+                    scheme.surface.withValues(alpha: 0),
+                  ],
+                  stops: const [0.0, 0.52, 0.78, 1.0],
                 ),
               ),
             ),
@@ -306,29 +323,6 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                               onOpenScanner: () => setState(() => _tab = 1),
                             ),
                           },
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // These scrims sit above the page, not behind it. The previous
-                // gradient was painted under an opaque ListView, so the fade was
-                // invisible. Keep both edges soft while the content scrolls.
-                Positioned(
-                  top: topInset - 8,
-                  left: 0,
-                  right: 0,
-                  height: 30,
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            scheme.surface.withValues(alpha: 0.82),
-                            scheme.surface.withValues(alpha: 0),
-                          ],
                         ),
                       ),
                     ),
