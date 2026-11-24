@@ -703,11 +703,18 @@ class _NavPillItem extends StatelessWidget {
                     // to the top of the row. This clip grows the label width
                     // while keeping the text vertically centered beside the
                     // icon, so it can never sit in the capsule's top corner.
-                    child: ClipRect(
-                      child: Align(
-                        alignment: Alignment.center,
-                        widthFactor: animation.value,
-                        child: child,
+                    // AnimatedBuilder is essential here: transitionBuilder runs
+                    // once, so reading animation.value directly would capture
+                    // its initial zero and clip the label away forever.
+                    child: AnimatedBuilder(
+                      animation: animation,
+                      child: child,
+                      builder: (context, child) => ClipRect(
+                        child: Align(
+                          alignment: Alignment.center,
+                          widthFactor: animation.value,
+                          child: child,
+                        ),
                       ),
                     ),
                   ),
