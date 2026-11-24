@@ -1201,6 +1201,9 @@ class DeviceSettings {
   /// `fade`, `zoom`, or `slide`. Applied through [buildTheme]'s pageTransitionsTheme.
   final String pageTransition;
 
+  /// How the three home tabs animate when switching: `slide`, `fade`, `scale` or `lift`.
+  final String tabTransition;
+
   /// Draws the Bento mesh backdrop. Turning it off leaves a flat surface for slower phones.
   final bool meshBackground;
 
@@ -1315,6 +1318,7 @@ class DeviceSettings {
     this.dashboardSizes = defaultDashboardSizes,
     this.motionEnabled = true,
     this.pageTransition = 'fade',
+    this.tabTransition = 'slide',
     this.meshBackground = true,
     this.deployment = '',
     this.scanners = const {},
@@ -1412,6 +1416,11 @@ class DeviceSettings {
         const {'fade', 'zoom', 'slide'},
         d.pageTransition,
       ),
+      tabTransition: _choice(
+        ui['tabTransition'],
+        const {'fade', 'slide', 'scale', 'lift'},
+        d.tabTransition,
+      ),
       meshBackground: _bool(ui['mesh'], d.meshBackground),
       deployment: _str(j['deployment'], d.deployment),
       scanners: {
@@ -1464,6 +1473,7 @@ class DeviceSettings {
     'ui': {
       'motion': motionEnabled,
       'pageTransition': pageTransition,
+      'tabTransition': tabTransition,
       'mesh': meshBackground,
     },
     'deployment': deployment,

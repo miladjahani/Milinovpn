@@ -240,6 +240,15 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                 ? 920.0
                 : constraints.maxWidth;
             final topInset = miliHomeTopInset(context);
+            final tabTransition = state.tabTransition.value;
+            final tabDuration = !state.motionEnabled.value
+                ? Duration.zero
+                : switch (tabTransition) {
+                    'fade' => const Duration(milliseconds: 220),
+                    'scale' => const Duration(milliseconds: 300),
+                    'lift' => const Duration(milliseconds: 360),
+                    _ => const Duration(milliseconds: 320),
+                  };
             return Stack(
               children: [
                 Positioned.fill(
@@ -289,29 +298,50 @@ class _MiliHomeShellState extends State<MiliHomeShell> {
                           ).createShader(rect);
                         },
                         child: AnimatedSwitcher(
-                          duration: state.motionEnabled.value
-                              ? const Duration(milliseconds: 300)
-                              : Duration.zero,
+                          duration: tabDuration,
                           switchInCurve: Curves.easeOutCubic,
                           switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, anim) => FadeTransition(
-                            opacity: CurvedAnimation(
+                          transitionBuilder: (child, anim) {
+                            final curved = CurvedAnimation(
                               parent: anim,
                               curve: Curves.easeOutCubic,
-                            ),
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0.035, 0),
-                                end: Offset.zero,
-                              ).animate(
-                                CurvedAnimation(
-                                  parent: anim,
-                                  curve: Curves.easeOutBack,
+                              reverseCurve: Curves.easeInCubic,
+                            );
+                            final faded = FadeTransition(
+                              opacity: curved,
+                              child: child,
+                            );
+                            return switch (tabTransition) {
+                              'fade' => faded,
+                              'scale' => ScaleTransition(
+                                scale: Tween<double>(
+                                  begin: 0.94,
+                                  end: 1,
+                                ).animate(curved),
+                                child: faded,
+                              ),
+                              'lift' => SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.045),
+                                  end: Offset.zero,
+                                ).animate(curved),
+                                child: ScaleTransition(
+                                  scale: Tween<double>(
+                                    begin: 0.985,
+                                    end: 1,
+                                  ).animate(curved),
+                                  child: faded,
                                 ),
                               ),
-                              child: child,
-                            ),
-                          ),
+                              _ => SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0.045, 0),
+                                  end: Offset.zero,
+                                ).animate(curved),
+                                child: faded,
+                              ),
+                            };
+                          },
                           child: RepaintBoundary(
                             key: ValueKey(_tab),
                             child: switch (_tab) {

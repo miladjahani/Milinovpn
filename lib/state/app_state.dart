@@ -139,6 +139,7 @@ class AppState extends ChangeNotifier {
   final fontScale = ValueNotifier<double>(1.0);
   final motionEnabled = ValueNotifier<bool>(true);
   final pageTransition = ValueNotifier<String>('fade');
+  final tabTransition = ValueNotifier<String>('slide');
   final meshBackground = ValueNotifier<bool>(true);
 
   VpnStatus status = VpnStatus.disconnected;
@@ -404,6 +405,11 @@ class AppState extends ChangeNotifier {
     write('device.ui.pageTransition', value);
   }
 
+  void setTabTransition(String value) {
+    if (!const {'fade', 'slide', 'scale', 'lift'}.contains(value)) return;
+    write('device.ui.tabTransition', value);
+  }
+
   void setMeshBackground(bool value) => write('device.ui.mesh', value);
 
   /// Restores the visual preferences without touching profiles, accounts or routing.
@@ -416,6 +422,7 @@ class AppState extends ChangeNotifier {
           .updated('theme.fontScale', 1.0)
           .updated('ui.motion', true)
           .updated('ui.pageTransition', 'fade')
+          .updated('ui.tabTransition', 'slide')
           .updated('ui.mesh', true),
       reconnect: false,
     );
@@ -600,6 +607,7 @@ class AppState extends ChangeNotifier {
     fontScale.value = device.fontScale;
     motionEnabled.value = device.motionEnabled;
     pageTransition.value = device.pageTransition;
+    tabTransition.value = device.tabTransition;
     meshBackground.value = device.meshBackground;
   }
 

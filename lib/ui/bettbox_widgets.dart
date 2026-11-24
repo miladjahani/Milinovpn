@@ -699,11 +699,16 @@ class _NavPillItem extends StatelessWidget {
                   switchOutCurve: Curves.easeInCubic,
                   transitionBuilder: (child, animation) => FadeTransition(
                     opacity: animation,
-                    child: SizeTransition(
-                      sizeFactor: animation,
-                      axis: Axis.horizontal,
-                      axisAlignment: 0,
-                      child: child,
+                    // SizeTransition's horizontal mode still pins the child
+                    // to the top of the row. This clip grows the label width
+                    // while keeping the text vertically centered beside the
+                    // icon, so it can never sit in the capsule's top corner.
+                    child: ClipRect(
+                      child: Align(
+                        alignment: Alignment.center,
+                        widthFactor: animation.value,
+                        child: child,
+                      ),
                     ),
                   ),
                   child: selected

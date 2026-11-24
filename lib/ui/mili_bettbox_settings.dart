@@ -11,6 +11,7 @@ import 'cf_accounts_page.dart';
 import 'chain_proxies_page.dart';
 import 'dns_page.dart';
 import 'engine_page.dart';
+import 'exit_locations_page.dart';
 import 'expressive.dart';
 import 'fragments_page.dart';
 import 'config_view_page.dart';
@@ -132,6 +133,16 @@ class _MiliBettboxSettingsTabState extends State<MiliBettboxSettingsTab> {
       ),
       keywords: 'chain proxy vless trojan shadowsocks wireguard زنجیره',
       onTap: (context) => _push(context, const ChainProxiesPage()),
+    ),
+    _SettingsDestination(
+      icon: Symbols.travel_explore_rounded,
+      title: MiliLocale.t('لوکیشن‌های خروج', 'Exit locations'),
+      subtitle: MiliLocale.t(
+        'لبه ورکر و پیجز، و کاتالوگ پروتون VPN',
+        'Worker and Pages edge, Proton VPN directory',
+      ),
+      keywords: 'exit location proton worker pages colo لوکیشن پروتون خروجی',
+      onTap: (context) => _push(context, const ExitLocationsPage()),
     ),
     _SettingsDestination(
       icon: Symbols.cloud_rounded,

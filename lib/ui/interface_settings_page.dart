@@ -51,6 +51,7 @@ class InterfaceSettingsPage extends StatelessWidget {
           state.fontScale,
           state.motionEnabled,
           state.pageTransition,
+          state.tabTransition,
           state.meshBackground,
         ]),
         builder: (context, _) {
@@ -117,6 +118,7 @@ class InterfaceSettingsPage extends StatelessWidget {
                       enabled: motion,
                       transitionNames: _transitionNames,
                     ),
+                    _TabTransitionPicker(state: state, enabled: motion),
                     SwitchListTile(
                       secondary: const Icon(Symbols.blur_on_rounded),
                       title: Text(
@@ -201,9 +203,9 @@ class InterfaceSettingsPage extends StatelessWidget {
         ),
         content: Text(
           MiliLocale.t(
-            'رنگ، حالت تاریک/روشن، فونت، اندازه متن، انیمیشن‌ها، ترنزیشن و پس‌زمینه به مقدار اولیه برمی‌گردند. اتصال و تنظیمات ورکر دست نمی‌خورند.',
-            'Color, light/dark mode, font, text size, motion, transition and backdrop return '
-                'to their defaults. Connection and worker settings are untouched.',
+            'رنگ، حالت تاریک/روشن، فونت، اندازه متن، انیمیشن‌ها، ترنزیشن تب‌ها و صفحات و پس‌زمینه به مقدار اولیه برمی‌گردند. اتصال و تنظیمات ورکر دست نمی‌خورند.',
+            'Color, light/dark mode, font, text size, motion, tab/page transitions and '
+                'backdrop return to their defaults. Connection and worker settings are untouched.',
           ),
         ),
         actions: [
@@ -961,6 +963,121 @@ class _TransitionPicker extends StatelessWidget {
                                 ),
                             ],
                           ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TabTransitionPicker extends StatelessWidget {
+  final AppState state;
+  final bool enabled;
+  const _TabTransitionPicker({required this.state, required this.enabled});
+
+  static const _options = [
+    ('slide', 'اسلاید نرم', 'Soft slide', Symbols.swap_horiz_rounded),
+    ('fade', 'محو', 'Fade', Symbols.blur_on_rounded),
+    ('scale', 'بزرگ‌نمایی', 'Scale', Symbols.zoom_out_map_rounded),
+    ('lift', 'شناور', 'Lift', Symbols.vertical_align_top_rounded),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final selected = state.tabTransition.value;
+    final motion = state.motionEnabled.value;
+    return Opacity(
+      opacity: enabled ? 1 : 0.48,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              leading: const Icon(Symbols.view_carousel_rounded),
+              title: Text(
+                MiliLocale.t('ترنزیشن تب‌ها', 'Tab transition'),
+              ),
+              subtitle: Text(
+                MiliLocale.t(
+                  'حرکت بین داشبورد، اسکنر و تنظیمات را انتخاب کنید.',
+                  'Choose how the dashboard, scanner and settings swap in.',
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+              child: GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 7,
+                crossAxisSpacing: 7,
+                childAspectRatio: 2.65,
+                children: [
+                  for (final option in _options)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => state.setTabTransition(option.$1),
+                      child: AnimatedContainer(
+                        duration: motion
+                            ? const Duration(milliseconds: 170)
+                            : Duration.zero,
+                        padding: const EdgeInsets.symmetric(horizontal: 11),
+                        decoration: BoxDecoration(
+                          color: selected == option.$1
+                              ? scheme.primaryContainer
+                              : scheme.surfaceContainerHigh.withValues(
+                                  alpha: 0.34,
+                                ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: selected == option.$1
+                                ? scheme.primary
+                                : scheme.outlineVariant,
+                            width: selected == option.$1 ? 1.3 : 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              option.$4,
+                              size: 19,
+                              color: selected == option.$1
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                MiliLocale.t(option.$2, option.$3),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: selected == option.$1
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                  color: selected == option.$1
+                                      ? scheme.onPrimaryContainer
+                                      : scheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            if (selected == option.$1)
+                              Icon(
+                                Symbols.check_circle_rounded,
+                                size: 18,
+                                color: scheme.primary,
+                              ),
+                          ],
                         ),
                       ),
                     ),
