@@ -1,3 +1,10 @@
+<p align="center">
+  <a href="https://github.com/miladjahani/Milinovpn/stargazers"><img src="https://img.shields.io/badge/%E2%98%85_STAR-84cc16?style=for-the-badge&labelColor=0b140b&logo=github&logoColor=white" alt="Star this repository" /></a>
+  <a href="https://github.com/miladjahani/Milinovpn/fork"><img src="https://img.shields.io/badge/FORK-84cc16?style=for-the-badge&labelColor=0b140b&logo=github&logoColor=white" alt="Fork" /></a>
+  <a href="https://github.com/miladjahani/Milinovpn/issues"><img src="https://img.shields.io/badge/ISSUES-84cc16?style=for-the-badge&labelColor=0b140b" alt="Issues" /></a>
+  <a href="https://github.com/miladjahani/Milinovpn/releases"><img src="https://img.shields.io/badge/RELEASES-84cc16?style=for-the-badge&labelColor=0b140b&logo=rocket&logoColor=white" alt="Releases" /></a>
+</p>
+
 # MiliConfig VPN (Android — Flutter + Go)
 
 **One vibrant app. Multiple ways to stay connected — powered by MiliConfig & Xray-core.**
